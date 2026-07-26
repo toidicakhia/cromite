@@ -1,0 +1,31 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: components-device_signals / com
+
+Files:
+ components/device_signals/core/common/win/platform_utils_win.cc
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/components/device_signals/core/common/win/platform_utils_win.cc b/components/device_signals/core/common/win/platform_utils_win.cc
+index c25fff49d8551..41fd5c1fb37db 100644
+--- a/components/device_signals/core/common/win/platform_utils_win.cc
++++ b/components/device_signals/core/common/win/platform_utils_win.cc
+@@ -5,6 +5,7 @@
+ #include "components/device_signals/core/common/platform_utils.h"
+ 
+ #include <windows.h>
++#include <psapi.h>
+ 
+ // SECURITY_WIN32 must be defined in order to get
+ // EXTENDED_NAME_FORMAT enumeration.
+@@ -20,8 +21,8 @@ absl::optional<base::FilePath> GetProcessExePath(base::ProcessId pid) {
+ 
+   DWORD path_len = MAX_PATH;
+   wchar_t path_string[MAX_PATH];
+-  if (!::QueryFullProcessImageName(process.Handle(), 0, path_string,
+-                                   &path_len)) {
++  if (!::GetModuleFileNameExW(process.Handle(), 0, path_string,
++                                   path_len)) {
+     return std::nullopt;
+   }

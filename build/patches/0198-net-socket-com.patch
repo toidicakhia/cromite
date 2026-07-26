@@ -1,0 +1,27 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: net-socket / com
+
+Files:
+ net/socket/tcp_socket_io_completion_port_win.cc
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/net/socket/tcp_socket_io_completion_port_win.cc b/net/socket/tcp_socket_io_completion_port_win.cc
+index b6d38f251a755..0501615cbe592 100644
+--- a/net/socket/tcp_socket_io_completion_port_win.cc
++++ b/net/socket/tcp_socket_io_completion_port_win.cc
+@@ -367,7 +367,12 @@ void TcpSocketIoCompletionPortWin::EnsureOverlappedIOInitialized() {
+       SkipCompletionPortOnSuccessIsSupported();
+   if (g_skip_completion_port_on_success_enabled &&
+       skip_completion_port_on_success_is_supported) {
+-    BOOL result = ::SetFileCompletionNotificationModes(
++typedef BOOL (WINAPI *lpfnSetFileCompletionNotificationModes)(_In_ HANDLE FileHandle, _In_ UCHAR Flags);
++
++static lpfnSetFileCompletionNotificationModes fnSetFileCompletionNotificationModes = NULL;
++
++        fnSetFileCompletionNotificationModes = (lpfnSetFileCompletionNotificationModes)::GetProcAddress(::GetModuleHandleW(L"kernel32.dll"), "SetFileCompletionNotificationModes");
++    BOOL result = fnSetFileCompletionNotificationModes && fnSetFileCompletionNotificationModes(
+         reinterpret_cast<HANDLE>(socket_),
+         FILE_SKIP_COMPLETION_PORT_ON_SUCCESS);
+     skip_completion_port_on_success_ = (result != 0);

@@ -1,0 +1,22 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: ui-gfx / font
+
+Files:
+ ui/gfx/system_fonts_win.cc
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/ui/gfx/system_fonts_win.cc b/ui/gfx/system_fonts_win.cc
+index 4cb0435402510..5454e39befe70 100644
+--- a/ui/gfx/system_fonts_win.cc
++++ b/ui/gfx/system_fonts_win.cc
+@@ -137,7 +138,7 @@ class SystemFonts {
+     TRACE_EVENT0("fonts", "gfx::SystemFonts::Initialize");
+ 
+     NONCLIENTMETRICS metrics = {};
+-    metrics.cbSize = sizeof(metrics);
++    metrics.cbSize = sizeof(metrics) - sizeof(metrics.iPaddedBorderWidth);
+     const bool success = !!SystemParametersInfo(SPI_GETNONCLIENTMETRICS,
+                                                 metrics.cbSize, &metrics, 0);
+     DCHECK(success);

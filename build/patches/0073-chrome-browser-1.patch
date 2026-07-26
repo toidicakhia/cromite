@@ -1,0 +1,25 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: chrome-browser / 
+
+Files:
+ chrome/browser/resources/settings/route.ts
+ chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc b/chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc
+index f5bbd0b22e340..8fe72571cea77 100644
+--- a/chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc
++++ b/chrome/browser/ui/webui/settings/settings_localized_strings_provider.cc
+@@ -287,6 +287,10 @@ void AddA11yStrings(content::WebUIDataSource* html_source) {
+   };
+   html_source->AddLocalizedStrings(kLocalizedStrings);
+ 
++#if BUILDFLAG(IS_WIN)
++  html_source->AddBoolean("isWindows10OrNewer", true);
++#endif
++
+   html_source->AddBoolean(
+       "isGuest",
+ #if BUILDFLAG(IS_CHROMEOS)

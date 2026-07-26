@@ -1,0 +1,27 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: components-policy / com
+
+Files:
+ components/policy/core/common/policy_loader_win.cc
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/components/policy/core/common/policy_loader_win.cc b/components/policy/core/common/policy_loader_win.cc
+index 0714452da0b44..5d5b477aadcf3 100644
+--- a/components/policy/core/common/policy_loader_win.cc
++++ b/components/policy/core/common/policy_loader_win.cc
+@@ -251,6 +251,13 @@ PolicyLoaderWin::PolicyLoaderWin(
+ }
+ 
+ PolicyLoaderWin::~PolicyLoaderWin() {
++  // Mitigate the issues caused by loading DLLs or lazily resolving symbols on a
++  // background thread (http://crbug/973868) which can hold the process wide
++  // LoaderLock and cause contention on Foreground threads. This issue is solved
++  // on Windows version after Win7. This code can be removed when Win7 is no
++  // longer supported.
++  SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
++
+   if (!user_policy_watcher_failed_) {
+     ::UnregisterGPNotification(user_policy_changed_event_.handle());
+     user_policy_watcher_.StopWatching();

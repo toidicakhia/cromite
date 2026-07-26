@@ -1,0 +1,29 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: base-debug / 
+
+Files:
+ base/debug/invalid_access_win.cc
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/base/debug/invalid_access_win.cc b/base/debug/invalid_access_win.cc
+index d6a96de167b28..a68c18ae4b54d 100644
+--- a/base/debug/invalid_access_win.cc
++++ b/base/debug/invalid_access_win.cc
+@@ -19,8 +19,13 @@ namespace {
+ void CreateSyntheticHeapCorruption() {
+   EXCEPTION_RECORD record = {};
+   record.ExceptionCode = STATUS_HEAP_CORRUPTION;
+-  RaiseFailFastException(&record, nullptr,
+-                         FAIL_FAST_GENERATE_EXCEPTION_ADDRESS);
++        HMODULE k32handle = GetModuleHandleW(L"kernelbase.dll");
++        auto pfnRaiseFailFastException =
++            (decltype(RaiseFailFastException)*)GetProcAddress(k32handle, "RaiseFailFastException");
++        if (pfnRaiseFailFastException)
++        {
++            pfnRaiseFailFastException(&record, nullptr, FAIL_FAST_GENERATE_EXCEPTION_ADDRESS);
++        }
+ }
+ 
+ }  // namespace

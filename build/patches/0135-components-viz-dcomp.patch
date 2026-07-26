@@ -1,0 +1,41 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: components-viz / dcomp
+
+Files:
+ components/viz/service/display_embedder/DEPS
+ components/viz/service/display_embedder/skia_output_device_dcomp.cc
+ ui/gl/DEPS
+ ui/gl/dc_layer_tree.cc
+ ui/gl/dc_layer_tree.h
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/components/viz/service/display_embedder/DEPS b/components/viz/service/display_embedder/DEPS
+index 73436c36385de..6f5719d36d43f 100644
+--- a/components/viz/service/display_embedder/DEPS
++++ b/components/viz/service/display_embedder/DEPS
+@@ -63,6 +63,9 @@ specific_include_rules = {
+     "+cc/test",
+     "+third_party/khronos/GLES2",
+   ],
++  "skia_output_device_dcomp\.cc": [
++    "+third_party/microsoft_dxheaders/src/include/composition",
++  ],
+   "software_output_device_ozone_unittest.cc": [
+     "+ui/compositor",
+     "+ui/gl",
+diff --git a/ui/gl/DEPS b/ui/gl/DEPS
+index 17849d3502c0a..4b632bd8fdf4c 100644
+--- a/ui/gl/DEPS
++++ b/ui/gl/DEPS
+@@ -21,6 +21,9 @@ specific_include_rules = {
+   "delegated_ink_point_renderer_gpu_unittest.cc": [
+     "+ui/base/win/hidden_window.h",
+   ],
++  "dc_layer_tree\.(cc|h)": [
++    "+third_party/microsoft_dxheaders/src/include/composition",
++  ],
+   "dcomp_presenter_unittest.cc": [
+     "+ui/base/test/skia_gold_matching_algorithm.h",
+     "+ui/base/test/skia_gold_pixel_diff.h",

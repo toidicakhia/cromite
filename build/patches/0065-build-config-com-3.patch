@@ -1,0 +1,22 @@
+From: win7-support-bot <win7@cromite.org>
+Date: Sun, 26 Jul 2026 00:00:00 +0000
+Subject: WIN7: build-config / com
+
+Files:
+ build/config/win/BUILD.gn
+
+License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
+---
+diff --git a/build/config/win/BUILD.gn b/build/config/win/BUILD.gn
+index c51ad032acd3f..e7a194de59010 100644
+--- a/build/config/win/BUILD.gn
++++ b/build/config/win/BUILD.gn
+@@ -95,7 +95,7 @@ config("compiler") {
+     cflags += [ "/D__WRL_ENABLE_FUNCTION_STATICS__" ]
+ 
+     # Tell clang which version of MSVC to emulate.
+-    cflags += [ "-fmsc-version=1934" ]
++    cflags += [ "-fmsc-version=1916" ]
+ 
+     if (is_component_build) {
+       cflags += [
