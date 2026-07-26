@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       rtag:
-        description: 'toidicakhia/cromite TAG or COMMIT'
+        description: 'uazo/cromite TAG or COMMIT'
         required: true
         default: ''
       use_combined_list:
@@ -78,8 +78,11 @@ jobs:
       - name: Use combined patch list if requested
         if: ${{ github.event.inputs.use_combined_list == 'true' }}
         run: |
-          cp ~/cromite/build/cromite_patches_list_combined.txt ~/cromite/build/cromite_patches_list.txt
-          echo "Using combined patch list (main + Win7 0001-0314 patches)"
+          cat ~/cromite/build/cromite_patches_list.txt > /tmp/combined.txt
+          echo "" >> /tmp/combined.txt
+          cat ~/cromite/build/cromite_patches_list_7.txt >> /tmp/combined.txt
+          cp /tmp/combined.txt ~/cromite/build/cromite_patches_list.txt
+          echo "Using combined patch list ($(wc -l < ~/cromite/build/cromite_patches_list.txt) entries)"
 
       - name: Check chromium version
         run: |
