@@ -21,9 +21,13 @@ on:
   workflow_dispatch:
     inputs:
       rtag:
-        description: 'uazo/cromite TAG or COMMIT'
+        description: 'toidicakhia/cromite TAG or COMMIT'
         required: true
         default: ''
+      use_combined_list:
+        description: 'Use combined patch list (main + Win7)? (true/false)'
+        required: false
+        default: 'true'
 
 env:
   RTAG: ${{ github.event.inputs.rtag }}
@@ -63,13 +67,19 @@ jobs:
           fi
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
-      - name: Checkout 'uazo/cromite' ${{ env.BRANCH }}
+      - name: Checkout 'toidicakhia/cromite' ${{ env.BRANCH }}
         uses: actions/checkout@v2
         with:
-            repository: 'uazo/cromite'
+            repository: 'toidicakhia/cromite'
             ref: ${{ github.event.inputs.rtag }}
             path: 'cromite'
             fetch-depth: 1
+
+      - name: Use combined patch list if requested
+        if: ${{ github.event.inputs.use_combined_list == 'true' }}
+        run: |
+          cp ~/cromite/build/cromite_patches_list_combined.txt ~/cromite/build/cromite_patches_list.txt
+          echo "Using combined patch list (main + Win7 0001-0314 patches)"
 
       - name: Check chromium version
         run: |
@@ -141,7 +151,7 @@ jobs:
         uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c #v6.1.0
         if: env.CHANGES == '1'
         with:
-          token: ${{ secrets.CROMITE_PULLS }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: cromite
           base: ${{ env.BRANCH }}
           #push-to-fork: uazo/cromite
