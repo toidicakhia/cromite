@@ -9,6 +9,7 @@ Restore-chrome-password-store.patch
 Remove-EV-certificates.patch
 do-not-hide-.orig-files.patch
 do-not-add-suffix-to-package-name.patch
+Add-option-to-disable-snapshots.patch
 Move-some-account-settings-back-to-privacy-settings.patch
 kill-Vision.patch
 kill-Location-fall-back-to-system.patch
@@ -228,7 +229,6 @@ Disable-remote-altsvc-for-h3-connections.patch
 do-not-block-build-incompatible-profiles.patch
 Allow-DocumentPiP-if-PopupsAndRedirects-are-active.patch
 allow-the-download-of-clang-for-windows-crossbuild.patch
-Add-option-to-disable-snapshots.patch
 Enable-Android-Dynamic-Performance-Framework.patch
 Fix-crash-on-customize-profile-ui.patch
 Enable-ImprovedBookmarks-by-default.patch
