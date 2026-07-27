@@ -20,6 +20,21 @@ fi
 
 echo "" | tee -a ${LOG_FILE}
 echo "Applying patch $PATCH" | tee -a ${LOG_FILE}
+
+# Check all target files exist before attempting apply
+_all_files_exist=1
+for _file in $(grep '+++ b/' $PATCH | sed -e 's#+++ [ab]/##'); do
+    if [ ! -f "$_file" ]; then
+        echo "  Target file missing: $_file" | tee -a ${LOG_FILE}
+        _all_files_exist=0
+    fi
+done
+
+if [[ _all_files_exist -eq 0 ]]; then
+    echo "  -> Cannot apply - target files missing. Skipping." | tee -a ${LOG_FILE}
+    exit 0
+fi
+
 git apply --reject --whitespace=fix $PATCH && OK=1
 
 if [[ OK -eq 0 ]]; then
