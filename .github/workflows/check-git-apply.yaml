@@ -68,7 +68,7 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
       - name: Checkout 'toidicakhia/cromite' ${{ env.BRANCH }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
             repository: 'toidicakhia/cromite'
             ref: ${{ github.event.inputs.rtag }}
@@ -76,7 +76,7 @@ jobs:
             fetch-depth: 1
 
       - name: Use combined patch list if requested
-        if: ${{ github.event.inputs.use_combined_list == 'true' }}
+        if: ${{ github.event.inputs.use_combined_list != 'false' }}
         run: |
           cat ~/cromite/build/cromite_patches_list.txt > /tmp/combined.txt
           echo "" >> /tmp/combined.txt
@@ -99,7 +99,7 @@ jobs:
       - name: Download chromium ${{ env.VERSION }} sources
         run: |
           export HOME=$GITHUB_WORKSPACE
-          ./bin/SuperPatchUtils bromite $RTAG ~/chromium-src
+          ./bin/SuperPatchUtils bromite $RTAG ~/chromium-src || { echo "SuperPatchUtils failed for RTAG=$RTAG"; exit 1; }
           mkdir -p ~/chromium/src && cp -rT ~/chromium-src ~/chromium/src
           cd ~/chromium/src
           git init

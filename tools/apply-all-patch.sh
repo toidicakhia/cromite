@@ -8,8 +8,8 @@ PATCH_NEW_PATH=~/cromite/build/patches-new
 DESTINATION=~/cromite/build/cromite_patches_list_ok.txt
 DESTINATION_FAILED=~/cromite/build/cromite_patches_list_failed.txt
 
-rm $DESTINATION
-rm $DESTINATION_FAILED
+rm -f $DESTINATION
+rm -f $DESTINATION_FAILED
 mkdir $PATCH_NEW_PATH
 
 IFS=$'\n'
