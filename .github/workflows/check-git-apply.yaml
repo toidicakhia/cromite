@@ -69,7 +69,7 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
       - name: Checkout 'toidicakhia/cromite' ${{ env.BRANCH }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
             repository: 'toidicakhia/cromite'
             ref: ${{ github.sha }}
@@ -93,7 +93,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Cache chromium sources
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: chromium-src
           key: chrsource-${{ env.VERSION }}
@@ -152,7 +152,7 @@ jobs:
           CHANGES=0 && git diff --quiet || CHANGES=1
           echo "CHANGES=$CHANGES" >> $GITHUB_ENV
 
-          if [[ CHANGES -eq 1 ]]; then
+          if [[ $CHANGES -eq 1 ]]; then
               git add build/patches/*.patch
               git diff --name-only --staged
               # MESSAGE=$(git diff --name-only --staged)

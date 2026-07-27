@@ -99,9 +99,9 @@ if [[ DOEXPORT -eq 1 ]]; then
            bash ~/cromite/tools/create-from-patch.sh $PATCH $2 || exit 1
 
            rm /tmp/1 /tmp/2 || true
-           lsdiff $PATCH >/tmp/1
-           lsdiff ../../cromite/build/patches-new/$(basename -- $PATCH) >/tmp/2
-           STATUS="$(cmp --silent /tmp/1 /tmp/2; echo $?)"
+            lsdiff $PATCH | sort >/tmp/1
+            lsdiff ../../cromite/build/patches-new/$(basename -- $PATCH) | sort >/tmp/2
+            STATUS="$(cmp --silent /tmp/1 /tmp/2; echo $?)"
            if [[ $STATUS -ne 0 ]]; then
                   git reset HEAD^
                   diff /tmp/1 /tmp/2
