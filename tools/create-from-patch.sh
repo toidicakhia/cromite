@@ -16,7 +16,12 @@ else
 fi
 
 echo "  Creating new patch"
-git add .
+# Only stage files that are in the patch (not everything) to avoid picking up unrelated restored files
+for _f in $(grep -E '^(\+\+\+ b/|--- a/)' "$PATCH" | sed -e 's#^+++ b/##' -e 's#^--- a/##' | sort -u); do
+    if [ -f "$_f" ] || [ -d "$_f" ]; then
+        git add "$_f" 2>/dev/null
+    fi
+done
 
 HEAD=$(sed -n '1,/---/ p' $PATCH | sed '/^---/d')
 CONTENT=$(git -C ~/chromium/src/ diff --cached --binary)
