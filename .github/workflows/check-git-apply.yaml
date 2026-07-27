@@ -92,7 +92,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Cache chromium sources
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: chromium-src
           key: chrsource-${{ env.VERSION }}
