@@ -78,6 +78,7 @@ jobs:
       - name: Use combined patch list if requested
         if: ${{ github.event.inputs.use_combined_list != 'false' }}
         run: |
+          export HOME=$GITHUB_WORKSPACE
           cat ~/cromite/build/cromite_patches_list.txt > /tmp/combined.txt
           echo "" >> /tmp/combined.txt
           cat ~/cromite/build/cromite_patches_list_7.txt >> /tmp/combined.txt
