@@ -6,10 +6,10 @@ License: GPL-3.0-only - https://spdx.org/licenses/GPL-3.0-only.html
 ---
  .../android/java/res/xml/privacy_preferences.xml  |  5 +++++
  .../chrome/browser/ChromeTabbedActivity.java      |  5 ++++-
- .../browser/privacy/settings/PrivacySettings.java | 15 ++++++++++++++-
+ .../browser/privacy/settings/PrivacySettings.java | 14 +++++++++++++-
  .../browser/tab_group_sync/StartupHelper.java     |  6 ++++++
  .../ui/android/strings/android_chrome_strings.grd |  6 ++++++
- 5 files changed, 35 insertions(+), 2 deletions(-)
+ 5 files changed, 34 insertions(+), 2 deletions(-)
 
 diff --git a/chrome/android/java/res/xml/privacy_preferences.xml b/chrome/android/java/res/xml/privacy_preferences.xml
 --- a/chrome/android/java/res/xml/privacy_preferences.xml
@@ -52,14 +52,6 @@ diff --git a/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedAct
 diff --git a/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java b/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java
 --- a/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java
 +++ b/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java
-@@ -10,6 +10,7 @@ import static org.chromium.ui.R.drawable.gshield_colorful;
- 
- import android.content.Context;
- import android.content.Intent;
-+import android.content.SharedPreferences;
- import android.graphics.drawable.Drawable;
- import android.os.Bundle;
- import android.text.SpannableString;
 @@ -25,6 +26,7 @@ import androidx.preference.Preference;
  
  import org.chromium.base.ApiCompatibilityUtils;
