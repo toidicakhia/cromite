@@ -51,6 +51,7 @@ jobs:
 
           wget https://github.com/toidicakhia/superpatch/releases/download/v0.21-cromite/SuperPatchUtils.tar.gz
           tar xfz SuperPatchUtils.tar.gz
+          chmod +x bin/SuperPatchUtils
           rm SuperPatchUtils.tar.gz
 
           wget https://github.com/ericchiang/pup/releases/download/v0.4.0/pup_v0.4.0_linux_amd64.zip
