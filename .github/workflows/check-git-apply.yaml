@@ -62,8 +62,8 @@ jobs:
             BRANCH=$(curl https://github.com/uazo/cromite/branch_commits/$RTAG a | ./pup -p li.branch:first-child a text{})
           fi
           if [ -z "${BRANCH}" ]; then
-            echo "Can not recover the base commit"
-            exit 1
+            echo "Can not recover the base commit from uazo/cromite, falling back to master"
+            BRANCH=master
           fi
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
