@@ -1,19 +1,7 @@
-From: uazo <uazo@users.noreply.github.com>
-Date: Mon, 21 Aug 2023 14:03:25 +0000
-Subject: Add option to disable snapshots
-
-License: GPL-2.0-or-later - https://spdx.org/licenses/GPL-2.0-or-later.html
----
- .../java/res/xml/privacy_preferences.xml      |  5 ++
- .../privacy/settings/PrivacySettings.java     | 46 ++++++++++++++++++-
- .../chrome/browser/app/ChromeActivity.java    |  5 +-
- .../strings/android_chrome_strings.grd        |  8 ++++
- 4 files changed, 60 insertions(+), 4 deletions(-)
-
 diff --git a/chrome/android/java/res/xml/privacy_preferences.xml b/chrome/android/java/res/xml/privacy_preferences.xml
 --- a/chrome/android/java/res/xml/privacy_preferences.xml
 +++ b/chrome/android/java/res/xml/privacy_preferences.xml
-@@ -61,7 +61,12 @@
+@@ -61,5 +61,10 @@
          android:summary="@string/preload_pages_summary"
          android:fragment="org.chromium.chrome.browser.prefetch.settings.PreloadPagesSettingsFragment" />
 +    <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
@@ -27,11 +15,11 @@ diff --git a/chrome/android/java/res/xml/privacy_preferences.xml b/chrome/androi
 diff --git a/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java b/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java
 --- a/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java
 +++ b/chrome/android/java/src/org/chromium/chrome/browser/privacy/settings/PrivacySettings.java
-@@ -9,6 +9,7 @@
+@@ -9,2 +9,3 @@
  import android.os.Build;
 +import android.content.SharedPreferences;
  import android.os.Bundle;
-@@ -46,6 +47,13 @@
+@@ -46,2 +47,8 @@
  import org.chromium.components.browser_ui.settings.SettingsUtils;
 +import org.chromium.base.ContextUtils;
 +import org.chromium.chrome.browser.lifetime.ApplicationLifetime;
@@ -40,7 +28,7 @@ diff --git a/chrome/android/java/src/org/chromium/chrome/browser/privacy/setting
 +import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 +import java.util.function.Supplier;
  import org.chromium.components.browser_ui.site_settings.ContentSettingsResources;
-@@ -56,7 +63,20 @@
+@@ -56,6 +63,16 @@
  /** Fragment to keep track of the all the privacy related preferences. */
  public class PrivacySettings extends ChromeBaseSettingsFragment
 -        implements Preference.OnPreferenceChangeListener {
@@ -58,9 +46,9 @@ diff --git a/chrome/android/java/src/org/chromium/chrome/browser/privacy/setting
      private static final String PREF_CAN_MAKE_PAYMENT = "can_make_payment";
      private static final String PREF_PRELOAD_PAGES = "preload_pages";
      private static final String PREF_HTTPS_FIRST_MODE = "https_first_mode";
-@@ -124,6 +133,23 @@
+@@ -124,6 +133,24 @@
          }
-
+ 
          Preference privacyGuidePreference = findPreference(PREF_PRIVACY_GUIDE);
 +        mSnackbar = Snackbar.make(getActivity().getString(R.string.ui_relaunch_notice),
 +                new SnackbarManager.SnackbarController() {
@@ -83,7 +71,7 @@ diff --git a/chrome/android/java/src/org/chromium/chrome/browser/privacy/setting
          // Record the launch of PG from the S&P link-row entry point
          privacyGuidePreference.setOnPreferenceClickListener(
                  preference -> {
-@@ -290,6 +316,11 @@
+@@ -290,6 +316,10 @@
          } else if (PREF_HTTPS_FIRST_MODE.equals(key)) {
              UserPrefs.get(getProfile())
                      .setBoolean(Pref.HTTPS_ONLY_MODE_ENABLED, (boolean) newValue);
@@ -97,7 +85,7 @@ diff --git a/chrome/android/java/src/org/chromium/chrome/browser/privacy/setting
 diff --git a/chrome/android/java/src/org/chromium/chrome/browser/app/ChromeActivity.java b/chrome/android/java/src/org/chromium/chrome/browser/app/ChromeActivity.java
 --- a/chrome/android/java/src/org/chromium/chrome/browser/app/ChromeActivity.java
 +++ b/chrome/android/java/src/org/chromium/chrome/browser/app/ChromeActivity.java
-@@ -138,6 +138,7 @@
+@@ -138,4 +138,5 @@
  import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
  import org.chromium.chrome.browser.preferences.Pref;
 +import org.chromium.chrome.browser.privacy.settings.PrivacySettings;
@@ -111,12 +99,12 @@ diff --git a/chrome/android/java/src/org/chromium/chrome/browser/app/ChromeActiv
 +                            !SysUtils.isLowEndDevice() && !ContextUtils.getAppSharedPreferences().getBoolean(PrivacySettings.PREF_TABGRID_USE_ICONS, false),
                             tabModelSelector != null ? tabModelSelector::getTabById : null,
                             TabWindowManagerSingleton.getInstance()));
-
+ 
 diff --git a/chrome/browser/ui/android/strings/android_chrome_strings.grd b/chrome/browser/ui/android/strings/android_chrome_strings.grd
 --- a/chrome/browser/ui/android/strings/android_chrome_strings.grd
 +++ b/chrome/browser/ui/android/strings/android_chrome_strings.grd
-@@ -5741,6 +5741,14 @@
-
+@@ -5741,5 +5741,13 @@
+ 
 +      <!-- Tab Broup Disable Thumbnail -->
 +      <message name="IDS_TABGRID_USE_ICONS_TITLE" desc="Text for 'Use icons in the tab grid' settings-privacy option.">
 +        Use only icons in the tab grid
