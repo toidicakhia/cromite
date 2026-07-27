@@ -78,19 +78,15 @@ diff --git a/chrome/android/java/res/xml/main_preferences.xml b/chrome/android/j
 diff --git a/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java b/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java
 --- a/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java
 +++ b/chrome/android/java/src/org/chromium/chrome/browser/ChromeTabbedActivity.java
-@@ -1129,10 +1129,8 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
+@@ -1103,6 +1103,4 @@ public class ChromeTabbedActivity extends ChromeActivity implements PreAttachInt
                              mXrSceneCoreSessionManagerSupplier.get(),
                              mBackPressManager,
                              getSnackbarManager(),
 -                            /* glicClickHandler= */ () ->
 -                                    ((TabbedRootUiCoordinator) mRootUiCoordinator)
--                                            .toggleGlic(),
--                            /*browserControlsManagerSupplier*/ () -> getBrowserControlsManager(false));
+-                                            .toggleGlic(false));
 +                            /* glicClickHandler= */ () -> {},
-+                            /*browserControlsManagerSupplier*/ () -> getBrowserControlsManager());
-             mLayoutStateProviderSupplier.set(mLayoutManager);
-         }
-     }
+                             mLayoutStateProviderSupplier.set(mLayoutManager);
 diff --git a/chrome/android/java/src/org/chromium/chrome/browser/SnackbarActivity.java b/chrome/android/java/src/org/chromium/chrome/browser/SnackbarActivity.java
 --- a/chrome/android/java/src/org/chromium/chrome/browser/SnackbarActivity.java
 +++ b/chrome/android/java/src/org/chromium/chrome/browser/SnackbarActivity.java
