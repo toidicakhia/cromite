@@ -113,3 +113,4 @@ index 70a2ca27b5aac..e54f20dee5b1c 100644
    for (const auto& supported_profile : profiles) {
      if (supported_profile.profile != kH264Profile) {
        continue;
+

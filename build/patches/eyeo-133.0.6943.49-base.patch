@@ -51765,3 +51765,4 @@ diff --git a/tools/metrics/histograms/metadata/extensions/enums.xml b/tools/metr
  
  <enum name="ExtensionPolicyReinstallReason">
 --
+

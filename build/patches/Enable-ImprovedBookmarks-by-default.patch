@@ -91,3 +91,4 @@ diff --git a/components/bookmarks/browser/bookmark_node.cc b/components/bookmark
        // Either MOBILE or OTHER_NODE is visible when empty, but never both.
        return !IsTypeVisibleWhenEmpty(BookmarkNode::OTHER_NODE);
 --
+

@@ -192,3 +192,4 @@ diff --git a/chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controll
      return false;
    }
 --
+

@@ -20,3 +20,4 @@ diff --git a/chrome/browser/ui/webui/cr_components/theme_color_picker/theme_colo
    color->background = is_dark_mode ? color_palette->primary().get(80)
                                     : color_palette->primary().get(40);
 --
+

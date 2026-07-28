@@ -1881,3 +1881,4 @@ new file mode 100644
 +                "TabSwitcherListMode",
 +                base::FEATURE_DISABLED_BY_DEFAULT);
 --
+

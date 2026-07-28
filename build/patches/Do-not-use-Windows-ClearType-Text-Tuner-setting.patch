@@ -41,3 +41,4 @@ diff --git a/ui/gfx/font_util_win.cc b/ui/gfx/font_util_win.cc
    for (int i = 0; EnumDisplayDevices(nullptr, i, &display_device, 0); ++i) {
      // TODO(scottmg): We only support the primary device currently.
 --
+

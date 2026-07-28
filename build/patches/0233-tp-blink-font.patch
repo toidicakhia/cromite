@@ -178,3 +178,4 @@ index 285cb0b..9e7e6c04 100644
    WebFontRenderStyle style;
    style.use_anti_alias = 0;
    style.use_subpixel_rendering = 0;
+

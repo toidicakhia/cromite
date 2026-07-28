@@ -294,3 +294,4 @@ index 0000000000000..d7dc403af2b6c
 +      RegistryEntry(kProtocolEntryKeyPath, kProtocolEntryName, std::wstring())
 +          .KeyExistsInRegistry(RegistryEntry::LOOK_IN_HKCU));
 +}
+

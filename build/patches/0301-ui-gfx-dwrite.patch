@@ -959,3 +959,4 @@ index 0000000000000..2b5c881d56066
 +}  // namespace gfx
 +
 +#endif  // UI_GFX_PLATFORM_FONT_WIN_H_
+

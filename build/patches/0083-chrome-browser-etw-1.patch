@@ -63,3 +63,4 @@ index 3ada82d4f1986..e09e21c2ec736 100644
        BrowserFrameActiveState active_state) const;
  
    // Returns the color that should be used for text and icons in the title bar
+

@@ -25,3 +25,4 @@ index 0714452da0b44..5d5b477aadcf3 100644
    if (!user_policy_watcher_failed_) {
      ::UnregisterGPNotification(user_policy_changed_event_.handle());
      user_policy_watcher_.StopWatching();
+

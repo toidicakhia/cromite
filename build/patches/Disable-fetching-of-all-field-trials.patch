@@ -484,3 +484,4 @@ diff --git a/third_party/blink/renderer/platform/loader/fetch/resource_request.h
  
    // Whether either RequestorOrigin or IsolatedWorldOrigin can display the
 --
+

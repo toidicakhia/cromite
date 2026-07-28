@@ -54,3 +54,4 @@ index 1bcc7fd1e4..a7182094e0 100644
 +    fake_pthread_once(&name##_guard, &init_##name##_config) /* no semicolon */
  
  #elif XNN_HAS_PTHREADS
+

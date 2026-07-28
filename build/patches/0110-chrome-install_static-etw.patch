@@ -60,3 +60,4 @@ index b23583064b019..2f00f08247409 100644
    if (user_data_dir.empty()) {
      // LOCALAPPDATA was not set; fallback to the temporary files path.
      DWORD size = ::GetTempPath(0, nullptr);
+

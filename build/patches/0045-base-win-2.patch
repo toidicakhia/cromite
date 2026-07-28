@@ -66,3 +66,4 @@ index 4852a753e5edf..c8cfe9fb0f1f2 100644
        base::UmaHistogramBoolean("Windows.CetEnabled",
                                  policy.EnableUserShadowStack);
      }
+

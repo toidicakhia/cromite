@@ -256,3 +256,4 @@ diff --git a/extensions/browser/api/management/management_api.cc b/extensions/br
        ManagementAPI::GetFactoryInstance()
            ->Get(browser_context())
 --
+

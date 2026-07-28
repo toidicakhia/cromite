@@ -295,3 +295,4 @@ index d076135f97daa..1f3d2975db940 100644
  // Tests that Hotfix information is retrieved via WMI.
  TEST_F(WinSystemSignalsServiceTest, GetHotfixSignals_Empty) {
    device_signals::InstalledHotfix fake_hotfix{"some hotfix id"};
+

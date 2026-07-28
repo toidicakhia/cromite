@@ -281,3 +281,4 @@ index 26936fe6bd51f..22bb24f2afcef 100644
      using EnableNonClientDpiScalingPtr = decltype(::EnableNonClientDpiScaling)*;
      static const auto enable_non_client_dpi_scaling_func =
          reinterpret_cast<EnableNonClientDpiScalingPtr>(
+

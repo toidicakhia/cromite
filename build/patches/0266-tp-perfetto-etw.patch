@@ -20,3 +20,4 @@ index 3ea2343084..f26bc01465 100644
    // QueryThreadCycleTime versus TSCTicksPerSecond doesn't have much relation to
    // actual elapsed time on Windows on Arm, because QueryThreadCycleTime is
    // backed by the actual number of CPU cycles executed, rather than a
+

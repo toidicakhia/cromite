@@ -44,3 +44,4 @@ index 33b849616ddff..269aceb8d84e6 100644
      *result = base::FilePath(std::wstring(path_buf));
      return true;
    }
+

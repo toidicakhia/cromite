@@ -237,3 +237,4 @@ diff --git a/media/media_options.gni b/media/media_options.gni
    # encoding of H264 content.
    media_use_openh264 = true
 --
+

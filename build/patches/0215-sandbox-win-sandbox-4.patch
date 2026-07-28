@@ -96,3 +96,4 @@ index 9cb20b9..0e84d6a 100644
        return answer.handle;
      } __except (EXCEPTION_EXECUTE_HANDLER) {
        break;
+

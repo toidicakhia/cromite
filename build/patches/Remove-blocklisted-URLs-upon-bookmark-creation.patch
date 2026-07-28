@@ -46,3 +46,4 @@ diff --git a/chrome/browser/bookmarks/android/java/src/org/chromium/chrome/brows
          final BookmarkModel bookmarkModel = mBookmarkModelSupplier.get();
          if (bookmarkModel == null || !bookmarkModel.isEditBookmarksEnabled()) {
 --
+

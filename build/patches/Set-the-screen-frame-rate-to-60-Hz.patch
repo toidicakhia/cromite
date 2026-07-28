@@ -435,3 +435,4 @@ diff --git a/third_party/blink/renderer/core/view_transition/view_transition.cc 
  
  gfx::Size ViewTransition::GetSnapshotRootSize() const {
 --
+

@@ -52,3 +52,4 @@ index 040ee7da1c7b..ea0d284f6b0a 100644
      LONG style = GetWindowLong(window, GWL_STYLE);
      if (style & WS_THICKFRAME || style & DS_MODALFRAME) {
        int width = GetSystemMetrics(SM_CXSIZEFRAME);
+

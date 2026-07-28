@@ -143,3 +143,4 @@ diff --git a/ui/android/overscroll_refresh.h b/ui/android/overscroll_refresh.h
    // True if the content y offset was zero before scroll began. Overscroll
    // should not be triggered for the scroll that started from non-zero offset.
 --
+

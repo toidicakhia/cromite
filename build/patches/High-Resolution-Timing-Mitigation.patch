@@ -144,3 +144,4 @@ diff --git a/third_party/blink/renderer/modules/video_rvfc/video_frame_callback_
  
  int VideoFrameCallbackRequesterImpl::requestVideoFrameCallback(
 --
+

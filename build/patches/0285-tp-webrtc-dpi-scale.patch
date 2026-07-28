@@ -53,3 +53,4 @@ index 7d02d41ce1..c7eaf549b7 100644
      if (SUCCEEDED(hr) && device_scale_factor != DEVICE_SCALE_FACTOR_INVALID) {
        texture_frame->set_device_scale_factor(
            static_cast<float>(device_scale_factor) / 100.0f);
+

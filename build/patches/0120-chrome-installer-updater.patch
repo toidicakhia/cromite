@@ -55,3 +55,4 @@ index 0bc559fe7e331..40a0266e89525 100644
 +  if (base::win::GetVersion() < base::win::Version::WIN7) {
      return ProcessExitResult(UNSUPPORTED_WINDOWS_VERSION);
    }
+

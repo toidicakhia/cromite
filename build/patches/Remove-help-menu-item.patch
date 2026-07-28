@@ -230,3 +230,4 @@ diff --git a/chrome/browser/ui/chrome_pages.cc b/chrome/browser/ui/chrome_pages.
  #if BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
    auto app_launch_source = apps::LaunchSource::kUnknown;
 --
+

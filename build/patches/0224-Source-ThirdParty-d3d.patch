@@ -350,3 +350,4 @@ index 970f61b81b..4db9e7de27 100644
      SetDisplayTLS(tlsData);
  #else
      gDisplayTLS = tlsData;
+

@@ -36,3 +36,4 @@ index edb193a5f3ac0..614f8e0297940 100644
      "/DELAYLOAD:rpcrt4.dll",
      "/DELAYLOAD:rstrtmgr.dll",
      "/DELAYLOAD:secur32.dll",
+

@@ -44,3 +44,4 @@ index dceeb4b26a1ed..0f56d6a1708bb 100644
      gl::SetSoftwareWebGLCommandLineSwitches(command_line, legacy_software_gl);
      return true;
    }
+

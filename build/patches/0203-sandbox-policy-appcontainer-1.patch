@@ -23,3 +23,4 @@ index fc71a3cb8dc38..7e0fa0d1b456d 100644
    CHECK_EQ(AddGenericConfig(config), SBOX_ALL_OK);
  
    std::string appcontainer_id;
+

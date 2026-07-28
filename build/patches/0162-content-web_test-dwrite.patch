@@ -175,3 +175,4 @@ index c65cbe1d0c751..226ddc88c4514 100644
  COMPONENT_EXPORT(GFX) void InitializeDirectWrite();
  
  // Creates a DirectWrite factory.
+

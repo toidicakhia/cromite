@@ -41,3 +41,4 @@ index e494574ec..0e84e3d26 100644
  #else // defined(CTL_HW) && defined(HW_NCPU)
    // TODO: grovel through /proc or check cpuid on x86 and similar
    // instructions on other architectures.
+

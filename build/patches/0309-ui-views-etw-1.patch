@@ -775,3 +775,4 @@ index da6afe2ae8940..08e46c7b92f6c 100644
 +
    // Invoked on entering/exiting a menu loop.
    virtual void HandleMenuLoop(bool in_menu_loop) = 0;
+

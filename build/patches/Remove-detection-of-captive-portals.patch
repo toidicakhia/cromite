@@ -56,3 +56,4 @@ diff --git a/components/captive_portal/core/features.gni b/components/captive_po
 +  enable_captive_portal_detection = false
  }
 --
+

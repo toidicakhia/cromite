@@ -139,3 +139,4 @@ diff --git a/chrome/browser/bookmarks/android/java/src/org/chromium/chrome/brows
              bookmarkToolbar.setNavigateBackRunnable(
                      model.get(BookmarkToolbarProperties.NAVIGATE_BACK_RUNNABLE));
 --
+

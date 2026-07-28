@@ -34,3 +34,4 @@ diff --git a/components/omnibox/common/omnibox_features.cc b/components/omnibox/
  // Enables additional site search providers for the Site search Starter Pack.
  BASE_FEATURE(kStarterPackExpansion, enable_if(!IS_ANDROID && !IS_IOS));
 --
+

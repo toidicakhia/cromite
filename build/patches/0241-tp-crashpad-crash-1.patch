@@ -26,3 +26,4 @@ index f8a2f92813436..4df9310f4fcd0 100644
      PLOG(ERROR) << "Wow64GetThreadContext";
      return false;
    }
+

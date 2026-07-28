@@ -103,3 +103,4 @@ index 395ae7217a..0952265dd0 100644
  
    // Check if the operation is done, continues asynchronously, or failed.
    if (ret == ERROR_IO_PENDING) {  // Async.
+

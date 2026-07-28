@@ -49,3 +49,4 @@ index 65410b198159e..f8e128aa4b695 100644
    DWORD proc_num = original_proc_num;
    DWORD_PTR original_affinity_mask =
        ::SetThreadAffinityMask(GetCurrentThread(), DWORD_PTR{1} << proc_num);
+

@@ -65,3 +65,4 @@ index 74c3b7c04aa07..bcb719943bc67 100644
          ::SwitchToFiber(big_stack_fiber);
          // The fibers must be cleaned up to avoid obscure TLS-related shutdown
          // crashes.
+

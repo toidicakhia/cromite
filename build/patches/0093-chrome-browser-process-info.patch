@@ -26,3 +26,4 @@ index 166dd7356abec..0ddbe0d8b9c42 100644
                                  ::ProcessOverrideSubsequentPrefetchParameter,
                                  &prefetch_parameter, sizeof(prefetch_parameter))
              ? ERROR_SUCCESS
+

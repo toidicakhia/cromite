@@ -277,3 +277,4 @@ index 9f83227410c3d..121b17ba436a4 100644
      return false;
    }
    ComPtr<ILimitedAccessFeaturesStatics> limited_access_features;
+

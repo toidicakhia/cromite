@@ -31,3 +31,4 @@ index 3c371d3e624a1..deba19101c4e7 100644
    friend class ::views::test::DesktopWindowTreeHostWinTestApi;
  
    using TouchIDs = std::set<DWORD>;
+

@@ -111,3 +111,4 @@ diff --git a/chrome/browser/updater/browser_updater_client.cc b/chrome/browser/u
  
  void BrowserUpdaterClient::GetUpdaterStateCompleted(
 --
+

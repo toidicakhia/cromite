@@ -59,3 +59,4 @@ index 542adc36a00f4..3fa87946bf6e6 100644
          base::UmaHistogramEnumeration(check_only
                                            ? kShouldPinToTaskbarResultHistogram
                                            : kTaskbarPinResultHistogram,
+

@@ -37,3 +37,4 @@ index 683ea13ccc5d1..2c8a3037f218b 100644
              RelationProcessorCore,
              reinterpret_cast<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX*>(
                  buffer.data()),
+

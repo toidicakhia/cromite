@@ -119,3 +119,4 @@ index 88aae9a2a0028..230ac10bf313b 100644
        manager->shader_translator_cache(),
        manager->framebuffer_completeness_cache(), feature_info,
        manager->watchdog() /* progress_reporter */, manager->gpu_feature_info(),
+

@@ -112,3 +112,4 @@ index 2e04f685379fb..118828250579f 100644
  }
  
  void MiniFile::Close() {
+

@@ -29,3 +29,4 @@ index bc3e24468dadf..07bd10f397e74 100644
    // Precise CPU usage is not available on Arm CPUs because they don't support
    // constant rate TSC.
    return GetImpreciseCumulativeCPUUsage(process_);
+

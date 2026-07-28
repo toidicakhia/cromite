@@ -851,3 +851,4 @@ index 03e30ea9ba434..3c54c6d50721d 100644
  <histogram name="Windows.PatchLevel" enum="WindowsPatchLevel"
      expires_after="never">
  <!-- expires-never: Needed to measure Windows ecosystem. -->
+

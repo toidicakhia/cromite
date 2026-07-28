@@ -390,3 +390,4 @@ diff --git a/content/browser/url_info.h b/content/browser/url_info.h
    int64_t unique_sandbox_id_ = UrlInfo::kInvalidUniqueSandboxId;
    std::optional<StoragePartitionConfig> storage_partition_config_;
 --
+

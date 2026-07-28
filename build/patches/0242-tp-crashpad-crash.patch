@@ -37,3 +37,4 @@ index 77faa692f3992..5592c4e265258 100644
 +      pFnWerRegisterRuntimeExceptionModule(path.c_str(), &g_wer_registration);
    return res == S_OK;
  }
+

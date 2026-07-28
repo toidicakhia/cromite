@@ -31,3 +31,4 @@ index 2a7380ddc296b..6c782acbb7b97 100644
  }
  
  void UninitializeDWriteFontProxy() {
+

@@ -32,3 +32,4 @@ diff --git a/components/safe_browsing/android/java/src/org/chromium/components/s
              if (sSafeBrowsingApiHandler == null) {
                  // sSafeBrowsingApiHandler can only be null in tests.
 --
+

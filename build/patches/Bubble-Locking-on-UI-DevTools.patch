@@ -80,3 +80,4 @@ diff --git a/ui/views/widget/widget.h b/ui/views/widget/widget.h
    GetDisableActivationChangeHandling() {
      return g_disable_activation_change_handling_;
 --
+

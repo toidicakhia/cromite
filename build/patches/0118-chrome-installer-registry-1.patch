@@ -180,3 +180,4 @@ index 4954787482f38..394fa9738c531 100644
    // Delete the |prog_id| value from HKEY_CURRENT_USER\RegisteredApplications.
    installer::DeleteRegistryValue(HKEY_CURRENT_USER,
                                   ShellUtil::kRegRegisteredApplications,
+

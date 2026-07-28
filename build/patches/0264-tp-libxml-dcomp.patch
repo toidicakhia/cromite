@@ -59,3 +59,4 @@ index 4a087562a1eec..6177eeac58f6d 100644
  #else
      if (onceControl == 0) {
          xmlInitParserInternal();
+

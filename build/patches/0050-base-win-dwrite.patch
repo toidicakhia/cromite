@@ -492,3 +492,4 @@ index 9462c70..ec22a00 100644
  COMPONENT_EXPORT(GFX) void CreateDWriteFactory(IDWriteFactory** factory);
  
  // Returns the global DirectWrite factory.
+

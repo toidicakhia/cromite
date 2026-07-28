@@ -233,3 +233,4 @@ index e327e69f42367..18b8649e02238 100644
  }  // namespace device
  
  #endif  // DEVICE_BLUETOOTH_TEST_BLUETOOTH_TEST_WIN_H_
+

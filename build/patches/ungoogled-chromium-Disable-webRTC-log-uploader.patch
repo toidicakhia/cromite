@@ -20,3 +20,4 @@ diff --git a/chrome/browser/ui/browser_ui_prefs.cc b/chrome/browser/ui/browser_u
        prefs::kWebRTCDiagnosticLogCollectionAllowedForOrigins,
        base::ListValue());
 --
+

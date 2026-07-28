@@ -57,3 +57,4 @@ index a24fbc52f7..4fb02f183c 100644
          if (FAILED(result))
          {
              return result;
+

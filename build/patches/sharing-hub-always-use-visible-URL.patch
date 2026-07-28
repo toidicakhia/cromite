@@ -19,3 +19,4 @@ diff --git a/chrome/android/java/src/org/chromium/chrome/browser/share/ShareDele
          if (webContents == null) return false;
          if (webContents.getMainFrame() == null) return false;
 --
+

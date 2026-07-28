@@ -118,3 +118,4 @@ index 2bd83e10e71cb..77ef901215989 100644
      }
    };
    using EvtHandle = std::unique_ptr<EVT_HANDLE, EvtHandleCloser>;
+

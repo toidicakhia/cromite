@@ -1445,3 +1445,4 @@ diff --git a/components/permissions/permission_request_manager.h b/components/pe
    void CancelRequestIncludingDuplicates(PermissionRequest* request,
                                          bool is_final_decision = true);
 --
+

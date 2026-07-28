@@ -229,3 +229,4 @@ index 22eca8554bf9b..338335e95f84d 100644
  
      # The path/label of the PDFium target that depends on `freetype` is
      # different when building PDFium during Chromium build and during
+

@@ -40,3 +40,4 @@ index 66e1c0fa50581..4c3a1e7304ab1 100644
 +  pfnSetWindowDisplayAffinity(GetHWND(),
                             allow_screenshots_ ? WDA_NONE : WDA_MONITOR);
  }
+

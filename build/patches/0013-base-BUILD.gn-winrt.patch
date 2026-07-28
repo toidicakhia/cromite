@@ -205,3 +205,4 @@ index 185ba09d10b6d..6324d638cdf83 100644
      DCHECK(SUCCEEDED(hr));
      return result < 0;
    }
+

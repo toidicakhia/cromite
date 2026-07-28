@@ -1056,3 +1056,4 @@ diff --git a/net/socket/ssl_client_socket_impl.cc b/net/socket/ssl_client_socket
    // but prefer to treat the HPKP error as more serious, if there was one.
    if (result == OK || result == ERR_CERTIFICATE_TRANSPARENCY_REQUIRED) {
 --
+

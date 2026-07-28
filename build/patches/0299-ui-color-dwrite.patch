@@ -653,3 +653,4 @@ index 74d600db1ea5e..c7afae3de99f7 100644
    gfx::Image image;
    GrabNativeWindowSnapshot(view, source_rect, &image);
    std::move(callback).Run(image);
+

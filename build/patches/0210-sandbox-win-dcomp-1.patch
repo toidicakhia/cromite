@@ -772,3 +772,4 @@ index 4a6036f4829d8..71c6e020a99b6 100644
 +void ResolveNTFunctionPtr(const char* name, void* ptr);
 +
  #endif  // SANDBOX_WIN_SRC_WIN_UTILS_H_
+

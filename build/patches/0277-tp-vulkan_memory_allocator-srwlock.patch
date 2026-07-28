@@ -20,3 +20,4 @@ index a09dd96..4e860db 100644
          // Use SRWLOCK from WinAPI.
          // Minimum supported client = Windows Vista, server = Windows Server 2008.
          class VmaRWMutex
+

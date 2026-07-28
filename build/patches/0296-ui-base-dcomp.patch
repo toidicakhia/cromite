@@ -58,3 +58,4 @@ index e4f43e94ba4df..36f4a51c0b19a 100644
    is_selection_interim_char_ = false;
    // reset |on_start_composition_called_| for next edit session.
    on_start_composition_called_ = false;
+

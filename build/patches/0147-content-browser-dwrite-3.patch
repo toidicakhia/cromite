@@ -56,3 +56,4 @@ index 5c9ec078225e7..b99ad29cdafac 100644
      sources += [
        "font_unique_name_lookup/font_table_matcher.h",
        "font_unique_name_lookup/font_table_persistence.h",
+

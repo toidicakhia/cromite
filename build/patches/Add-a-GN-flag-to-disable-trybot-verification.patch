@@ -38,3 +38,4 @@ diff --git a/chrome/android/expectations/expectations.gni b/chrome/android/expec
      ((target_cpu == "arm64" || target_cpu == "x64") &&
       android_channel == "stable")
 --
+

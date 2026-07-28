@@ -118,3 +118,4 @@ index 7139ba3d37463..a180fd0f43370 100644
    const base::TimeTicks exe_entry_point_ticks = base::TimeTicks::Now();
  
    // Signal Chrome Elf that Chrome has begun to start.
+

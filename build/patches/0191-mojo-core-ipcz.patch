@@ -53,3 +53,4 @@ index ce164c3cd36ec..f54981fcb54c3 100644
 -  mojo_support_legacy_core = target_os == "chromeos" || use_libfuzzer
 +  mojo_support_legacy_core = target_os == "chromeos" || use_libfuzzer || is_win
  }
+

@@ -47,3 +47,4 @@ index 587dc3e432778..5d496940a9987 100644
 +  fp(&ft);
    return FileTimeToMicroseconds(ft);
  }
+

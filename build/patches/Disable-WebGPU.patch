@@ -54,3 +54,4 @@ diff --git a/third_party/blink/renderer/modules/webgpu/gpu.cc b/third_party/blin
  
    auto* resolver =
 --
+

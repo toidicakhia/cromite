@@ -244,3 +244,4 @@ index 3a735803587ff..a5d02a60e021f 100644
    // We can't directly reference CreateDXGIFactory2 is it does not exist on
    // earlier Windows builds.  Therefore we need a LoadLibrary / GetProcAddress
    // dance.
+

@@ -110,3 +110,4 @@ index de5860065de68..0dcf29159e61a 100644
  
        // Close the handle given out above in fdintCOPY_FILE.
        ::CloseHandle(reinterpret_cast<HANDLE>(pfdin->hf));
+

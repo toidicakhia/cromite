@@ -152,3 +152,4 @@ index 13d8a980ea11b..b1b2f55484d7f 100644
 +  }
    return ::RegisterPointerDeviceNotifications(hwnd, notify_proximity_changes);
  }
+

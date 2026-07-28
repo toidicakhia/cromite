@@ -26,3 +26,4 @@ index f7e2f3198821a..e2a79de6f846f 100644
  InputScope ConvertTextInputTypeToInputScope(TextInputType text_input_type) {
    // Following mapping is based in IE10 on Windows 8.
    switch (text_input_type) {
+

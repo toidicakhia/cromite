@@ -46,3 +46,4 @@ index c6540592a5c18..c7c51e91c2f7d 100644
 +                       g_qpc_ticks_per_second));
  }
  }  // namespace subtle
+

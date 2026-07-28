@@ -122,3 +122,4 @@ index 4e7b6563bc229..3925a372ed509 100644
 +    UnregisterClass(kWindowClassName, instance_);
    }
  }
+

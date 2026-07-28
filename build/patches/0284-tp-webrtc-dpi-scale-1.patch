@@ -112,3 +112,4 @@ index 0d4b33752a..e33eb4bc98 100644
    if (device_scale_factor != DEVICE_SCALE_FACTOR_INVALID) {
      current_frame->set_device_scale_factor(
          static_cast<float>(device_scale_factor) / 100.0f);
+

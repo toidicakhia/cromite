@@ -180,3 +180,4 @@ diff --git a/net/dns/public/doh_provider_entry.h b/net/dns/public/doh_provider_e
        bool display_globally,
        base::flat_set<std::string> display_countries,
 --
+

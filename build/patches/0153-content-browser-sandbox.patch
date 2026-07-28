@@ -116,3 +116,4 @@ index 54e31d3656965..323e57edae0f5 100644
 +  result = config->SetTokenLevel(initial_token, sandbox::USER_LOCKDOWN);
    if (result != SBOX_ALL_OK)
      return result;
+

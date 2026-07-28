@@ -45,3 +45,4 @@ index f71af151655..0e4df010bad 100644
 +  static bool is_supported = GetQueryThreadCycleTimeFunction() && base::CPU().has_non_stop_time_stamp_counter();
    return is_supported;
  }
+

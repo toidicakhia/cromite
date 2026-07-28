@@ -20,3 +20,4 @@ index a32aa0c19cde6..edeb438da575f 100644
    EnableIntelShaderCache();
  #endif  // BUILDFLAG(IS_WIN)
    base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+

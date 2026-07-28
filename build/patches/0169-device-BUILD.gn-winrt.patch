@@ -1071,3 +1071,4 @@ index c2c567d289f88..e327e69f42367 100644
 +  void ForceRefreshDevice();
    void FinishPendingTasks();
  };
+

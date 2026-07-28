@@ -19,3 +19,4 @@ index 8b6ce19..86b0dcb 100644
    // Win8+ adds a device DeviceApi that we don't need.
    if (base::win::GetVersion() >= base::win::Version::WIN8)
    config->AddKernelObjectToClose(HandleToClose::kDeviceApi);
+

@@ -51,3 +51,4 @@ index 91cdfd00b..680b7d8b7 100644
      if (hres == S_OK) {
          feature_flags |= VK_LOADER_FEATURE_PHYSICAL_DEVICE_SORTING;
          dxgi_factory->lpVtbl->Release(dxgi_factory);
+

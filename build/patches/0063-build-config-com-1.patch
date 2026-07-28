@@ -22,3 +22,4 @@ index 29b9f115f5c74..78b4a09f4f7ab 100644
    if (current_os == "winuwp") {
      # When targeting Windows Runtime, certain compiler/linker flags are
      # necessary.
+

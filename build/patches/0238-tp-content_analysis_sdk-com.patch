@@ -48,3 +48,4 @@ index d053a91..7def903 100644
    CloseHandle(hProc);
    if (length == 0) {
      return false;
+

@@ -113,3 +113,4 @@ index fafc6b7248355..fbc98221c3ff8 100644
 +
  // Returns true if the string contains a NUL ('\0') character.
  bool ContainsNulCharacter(std::wstring_view str);
+

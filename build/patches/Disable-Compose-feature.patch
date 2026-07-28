@@ -82,3 +82,4 @@ diff --git a/components/compose/features.gni b/components/compose/features.gni
 +  enable_compose = false
  }
 --
+

@@ -277,3 +277,4 @@ new file mode 100644
 +                "AllowExternalIntentRequests",
 +                base::FEATURE_DISABLED_BY_DEFAULT);
 --
+

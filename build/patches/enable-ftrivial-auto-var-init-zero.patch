@@ -23,3 +23,4 @@ diff --git a/build/config/compiler/BUILD.gn b/build/config/compiler/BUILD.gn
      # problems. Therefore, we only enable one or the other. Clang advertises SCS as
      # a stronger alternative to StackProtector, so we give SCS precedence over SP.
 --
+

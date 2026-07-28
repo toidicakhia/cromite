@@ -111,3 +111,4 @@ index 3c9882f866433..c200a7d9c7be4 100644
  
      if (!module && error) {
        error->code = ::GetLastError();
+

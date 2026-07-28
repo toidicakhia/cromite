@@ -89,3 +89,4 @@ index 0348393ecf8ae..0f1bd5d69c5a0 100644
      if (pdh_status != ERROR_SUCCESS) {
        cpu_query_.reset();
        LOG(ERROR) << "PdhAddEnglishCounter failed for '" << query_info
+

@@ -309,3 +309,4 @@ index 0000000000000..91013769e24b0
 +}  // namespace proxy_resolver_win
 +
 +#endif  // SERVICES_PROXY_RESOLVER_WIN_WINHTTP_PROXY_RESOLVER_FUNCTIONS_H_
+

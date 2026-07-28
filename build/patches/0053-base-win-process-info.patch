@@ -56,3 +56,4 @@ index 5fd08d6658ddf..164fd78cdcc6c 100644
                                   &power_throttling, sizeof(power_throttling));
  }
 
+

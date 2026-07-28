@@ -299,3 +299,4 @@ index 46fb4516fa7be..91532504dc6b5 100644
    // Returns the DefaultState of Chrome for HTTP and HTTPS and updates the
    // default browser beacons as appropriate.
    static DefaultState GetChromeDefaultState();
+

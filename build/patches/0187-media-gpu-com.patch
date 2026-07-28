@@ -29,3 +29,4 @@ index 3d46117501..d9f454f029 100644
      LOG(ERROR) << "Failed to create DXGI factory";
      return nullptr;
    }
+

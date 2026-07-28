@@ -959,3 +959,4 @@ diff --git a/components/password_manager/core/browser/password_manager_client.h 
  
    // Checks whether user re-authentication should be triggered before password
 --
+

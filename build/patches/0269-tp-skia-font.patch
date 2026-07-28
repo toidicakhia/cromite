@@ -193,3 +193,4 @@ index 33eb2301bd..4f18dd25f4 100644
  #if !defined(SK_DISABLE_LEGACY_FONTMGR_REFDEFAULT)
  // A global function pointer that's not declared, but can be overriden at startup by test tools.
  sk_sp<SkFontMgr> (*gSkFontMgr_DefaultFactory)() = nullptr;
+

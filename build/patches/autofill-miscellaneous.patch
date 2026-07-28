@@ -347,3 +347,4 @@ diff --git a/components/password_manager/core/browser/password_generation_frame_
      if (logger) {
        logger->LogMessage(
 --
+

@@ -123,3 +123,4 @@ index 091e47fff25a6..8060f03911171 100644
  // Needed to support protobuf's GetMessage macro magic.
  WINUSERAPI BOOL WINAPI GetMessageW(_Out_ LPMSG lpMsg,
                                     _In_opt_ HWND hWnd,
+

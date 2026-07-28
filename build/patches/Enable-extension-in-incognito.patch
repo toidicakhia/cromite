@@ -1562,3 +1562,4 @@ diff --git a/components/tabs/impl/tab_strip_collection.cc b/components/tabs/impl
  
  void TabStripCollection::InsertTabCollectionAt(
 --
+

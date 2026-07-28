@@ -215,3 +215,4 @@ index b7216f8421d80..96189c0845ef6 100644
 +
    return UnregisterPowerSettingNotification(handle);
  }
+

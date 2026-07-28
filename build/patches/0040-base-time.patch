@@ -45,3 +45,4 @@ index ac3197a..ad3c991 100644
 +  return GetQueryThreadCycleTimeFunction() && time_internal::HasConstantRateTSC();
  #endif
  }
+

@@ -365,3 +365,4 @@ index 2df6abe7aa388..5ddd73dd00889 100644
  // Defines a set of workarounds that can be passed to ui/gl using the
  // SetGlWorkarounds function below.
  struct GlWorkarounds {
+

@@ -30,3 +30,4 @@ index ff9ebbbb58414..62ee7762f0aa8 100644
        base::FilePath file_path(path_string);
        return base::StartsWith(file_path.value(), process_path_prefix_,
                                base::CompareCase::INSENSITIVE_ASCII);
+

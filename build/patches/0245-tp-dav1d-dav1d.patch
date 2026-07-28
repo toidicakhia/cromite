@@ -34,3 +34,4 @@ index a8c0abb..811a726 100644
          int num_processors = 1;
          while (affinity.Mask &= affinity.Mask - 1)
              num_processors++;
+

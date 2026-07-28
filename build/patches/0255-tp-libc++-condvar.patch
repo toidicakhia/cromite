@@ -1220,3 +1220,4 @@ index 3ca36df80..cdc5e594c 100644
      return GetLastError();
    return 0;
  }
+

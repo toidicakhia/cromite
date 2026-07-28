@@ -57,3 +57,4 @@ index 580cedad..d420d2e7 100644
 +    if (dwRc == TIME_ZONE_ID_INVALID) {
          return nullptr;
      }
+

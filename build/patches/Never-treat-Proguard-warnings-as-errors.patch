@@ -23,3 +23,4 @@ diff --git a/build/config/android/internal_rules.gni b/build/config/android/inte
      if ((!defined(invoker.proguard_enable_obfuscation) ||
           invoker.proguard_enable_obfuscation) && enable_proguard_obfuscation) {
 --
+

@@ -56,3 +56,4 @@ diff --git a/ui/gfx/animation/animation_win.cc b/ui/gfx/animation/animation_win.
    // TODO(crbug.com/40611878): DCHECK this assertion once tests are
    // well-behaved.
 --
+

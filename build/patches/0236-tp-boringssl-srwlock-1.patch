@@ -59,3 +59,4 @@ index c8e19f51f..45011650e 100644
  
    pointers[index] = value;
    return 1;
+

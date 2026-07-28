@@ -291,3 +291,4 @@ diff --git a/chrome/common/pref_names.h b/chrome/common/pref_names.h
  // When this pref is set, the user will be able to access Google Apps
  // only using an account that belongs to one of the domains from this pref.
 --
+

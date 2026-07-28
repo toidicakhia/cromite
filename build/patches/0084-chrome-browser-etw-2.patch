@@ -210,3 +210,4 @@ index 5fd2913749e11..47109f604cf98 100644
    void SetFavicons(const favicon_base::FaviconUsageDataList& favicons) override;
  
    void SetHistoryItems(
+

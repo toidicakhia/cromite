@@ -64,3 +64,4 @@ index de559b11439a7..6cdd5a3bfeb58 100644
 +        }
        voice.lang = base::WideToUTF8(locale_name);
      }
+

@@ -48,3 +48,4 @@ index a1895fd2eec1b..cb095ce39530c 100644
  }
  
  bool SetProcessIntegrityLevel(IntegrityLevel integrity_level) {
+

@@ -316,3 +316,4 @@ diff --git a/components/content_settings/core/browser/content_settings_registry.
             WebsiteSettingsRegistry::ALL_PLATFORMS,
             ContentSettingsInfo::INHERIT_IN_INCOGNITO,
 --
+

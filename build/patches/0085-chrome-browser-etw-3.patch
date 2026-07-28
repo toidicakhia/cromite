@@ -1534,3 +1534,4 @@ index 13e4d9ea6f759..15dfb09fe53e5 100644
           ReadParam(m, iter, &r->public_key_hashes) &&
           ReadParam(m, iter, &r->is_issued_by_known_root) &&
           ReadParam(m, iter, &r->ocsp_result) && ReadParam(m, iter, &r->scts) &&
+

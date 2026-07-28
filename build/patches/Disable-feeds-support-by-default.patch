@@ -92,3 +92,4 @@ diff --git a/components/feed/feed_feature_list.cc b/components/feed/feed_feature
 +
  }  // namespace feed
 --
+

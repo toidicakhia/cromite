@@ -689,3 +689,4 @@ index ac50ce55cee9e..97a8417f14171 100644
 +    return LogInterruptReason("SHFileOperation", result, interrupt_reason);
    return interrupt_reason;
  }
+

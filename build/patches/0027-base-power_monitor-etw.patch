@@ -67,3 +67,4 @@ index 46d4ee05cc453..abeec0345212d 100644
    size_t num_cpu = static_cast<size_t>(base::SysInfo::NumberOfProcessors());
    std::vector<PROCESSOR_POWER_INFORMATION> info(num_cpu);
    if (!NT_SUCCESS(CallNtPowerInformation(
+

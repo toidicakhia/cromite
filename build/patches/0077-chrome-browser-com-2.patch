@@ -39,3 +39,4 @@ index 049b078484234..2f6a42170292b 100644
    }
    if (!success) {
      PLOG_IF(ERROR, ::GetLastError() != ERROR_GEN_FAILURE)
+

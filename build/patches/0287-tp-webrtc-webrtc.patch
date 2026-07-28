@@ -89,3 +89,4 @@ index 7e46d58e27..7a330057bc 100644
  void TaskQueueWin::Delete() {
    RTC_DCHECK(!IsCurrent());
    RTC_CHECK(thread_.GetHandle() != std::nullopt);
+

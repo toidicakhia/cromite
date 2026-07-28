@@ -96,3 +96,4 @@ index 6631ba69da171..19372539f4ac5 100644
    DWORD last_error = 0;
    if (!thread_id) {
      last_error = ::GetLastError();
+

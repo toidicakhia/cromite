@@ -43,3 +43,4 @@ index 8b83e0970ee8e..a8bdec7feac15 100644
                                       image_path.data(), &path_length);
    }
    if (!success) {
+

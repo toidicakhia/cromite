@@ -249,3 +249,4 @@ index c45abaa7a96a6..cd37fc30e1866 100644
    Microsoft::WRL::ComPtr<IDXGIFactoryMedia> media_factory;
    dxgi_adapter->GetParent(IID_PPV_ARGS(&media_factory));
    DCHECK(media_factory);
+

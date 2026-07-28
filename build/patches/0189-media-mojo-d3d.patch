@@ -169,3 +169,4 @@ index 453506471bdcc..c571fd23e3dc4 100644
 +
    mojo::Remote<mojom::TextDetection> text_service;
    TextDetectionImpl::Create(text_service.BindNewPipeAndPassReceiver());
+

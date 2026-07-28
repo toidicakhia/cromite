@@ -135,3 +135,4 @@ index 3fc3a9efcedd7..43d99815630d1 100644
    internal::AssertMemoryPriority(thread_handle, MEMORY_PRIORITY_VERY_LOW);
  
    PlatformThread::Sleep(base::Seconds(1));
+

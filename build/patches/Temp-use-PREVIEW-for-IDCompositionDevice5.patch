@@ -74,3 +74,4 @@ diff --git a/ui/gl/dc_layer_tree.h b/ui/gl/dc_layer_tree.h
    // This is a number that increments once every time `primary_plane_surface_`
    // is updated, and is used to determine when the contents have changed so
 --
+

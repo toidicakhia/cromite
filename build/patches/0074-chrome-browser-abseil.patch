@@ -27,3 +27,4 @@ index a57971e19a065..0e51b1f884e84 100644
    SetBackgroundColor(SK_ColorTRANSPARENT);
    // Title paints on top of an opaque region (the tab background) of a
    // non-opaque layer (the tabstrip's layer), which cannot currently be detected
+

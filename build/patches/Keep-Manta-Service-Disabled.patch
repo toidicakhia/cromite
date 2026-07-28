@@ -50,3 +50,4 @@ diff --git a/components/manta/features.cc b/components/manta/features.cc
  bool IsAnchovyUseProdServerEnabled() {
    return base::FeatureList::IsEnabled(kAnchovyUseProdServer);
 --
+

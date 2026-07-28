@@ -20,3 +20,4 @@ diff --git a/content/browser/device_posture/device_posture_platform_provider.cc 
    return std::make_unique<DevicePosturePlatformProviderWin>();
  #elif BUILDFLAG(IS_ANDROID)
 --
+

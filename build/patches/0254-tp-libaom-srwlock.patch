@@ -450,3 +450,4 @@ index 4ed32d463..df427fef7 100644
 +  ExReleasePushLockExclusive((PEX_PUSH_LOCK)mutex);
    return 0;
  }
+

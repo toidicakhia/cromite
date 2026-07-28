@@ -197,3 +197,4 @@ index 601b4b33f544a..dfd098b2cadb6 100644
    return !gpu_workarounds.disable_d3d11_video_decoder &&
           base::win::GetVersion() > base::win::Version::WIN7;
  }
+

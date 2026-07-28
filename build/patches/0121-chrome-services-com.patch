@@ -451,3 +451,4 @@ index d23cc61825fb9..f86ea10f2ac3c 100644
  }  // namespace device_signals
  
  #endif  // COMPONENTS_DEVICE_SIGNALS_CORE_SYSTEM_SIGNALS_WIN_WMI_CLIENT_IMPL_H_
+

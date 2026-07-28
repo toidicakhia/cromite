@@ -565,3 +565,4 @@ diff --git a/third_party/blink/renderer/platform/fonts/win/font_cache_skia_win.c
              !TypefacesMatchesFamily(typeface.get(), adjusted_name)) {
            return nullptr;
 --
+

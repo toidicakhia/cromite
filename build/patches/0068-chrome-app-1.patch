@@ -34,3 +34,4 @@ index fe768666e35dc..82e8657193dcf 100644
          </message>
          <message name="IDS_INSTALL_OS_ERROR" desc="Error displayed when any Windows API call fails and we do not have more specific information.">
            An operating system error occurred during installation. Please download Google Chrome again.
+

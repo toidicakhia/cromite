@@ -804,3 +804,4 @@ index 5a716f800675c..3f645398c55f3 100644
    SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
    // Lookup requires an asynchronous system API call, so cache the value.
    static std::atomic<KeyCredentialManagerAvailability> availability =
+

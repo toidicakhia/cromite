@@ -341,3 +341,4 @@ diff --git a/third_party/blink/renderer/modules/credentialmanagement/authenticat
      case AuthenticatorStatus::SUCCESS:
        NOTREACHED();
 --
+

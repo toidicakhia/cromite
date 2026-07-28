@@ -113,3 +113,4 @@ index e61ea15141..45e07d0f5b 100644
 +    return deviceD3D11->GetFunctions()->compareObjectHandles(handle, other);
  }
  }  // namespace
+

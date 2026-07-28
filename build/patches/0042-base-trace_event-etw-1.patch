@@ -90,3 +90,4 @@ index 6a346a0e28100..7c39a0381c77c 100644
    on_updated_callback_ = std::move(on_updated_callback);
    ULONG status =
        EventRegister(&provider_guid, StaticEnableCallback, this, &reg_handle_);
+

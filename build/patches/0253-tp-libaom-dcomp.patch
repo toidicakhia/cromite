@@ -76,3 +76,4 @@ index d1a031bf17..4d77aac5a1 100644
  }
  
  #elif CONFIG_MULTITHREAD && HAVE_PTHREAD_H
+

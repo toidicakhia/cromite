@@ -64,3 +64,4 @@ index 3969654bce..01ec96b6c1 100644
    hr = session_->StartCapture();
    if (FAILED(hr)) {
      RTC_LOG(LS_ERROR) << "Failed to start CaptureSession: " << hr;
+

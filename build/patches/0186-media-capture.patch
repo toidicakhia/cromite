@@ -49,3 +49,4 @@ index 771c193000607..fe37448e1a723 100644
          QDC_ONLY_ACTIVE_PATHS, &path_info_array_size, path_info_array,
          &mode_info_array_size, mode_info_array, nullptr));
    } while (hr == HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER));
+

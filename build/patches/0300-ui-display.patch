@@ -43,3 +43,4 @@ index ee77605a6b0c0..18e5ec0fcd849 100644
                                  path_infos.data(), &mode_elements,
                                  mode_infos.data(), nullptr);
      if (result == ERROR_SUCCESS) {
+

@@ -87,3 +87,4 @@ diff --git a/chrome/browser/ui/android/app_rating/BUILD.gn b/chrome/browser/ui/a
    android_aar_prebuilt("play_review_aar_internal_java") {
      aar_path = "//third_party/android_deps/autorolled/cipd/libs/com_google_android_play_review/review.aar"
 --
+

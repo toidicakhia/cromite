@@ -150,3 +150,4 @@ diff --git a/third_party/blink/renderer/core/loader/document_loader.h b/third_pa
    const bool is_static_data_ = false;
    CommitReason commit_reason_ = CommitReason::kRegular;
 --
+

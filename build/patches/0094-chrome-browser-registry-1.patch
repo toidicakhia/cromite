@@ -201,3 +201,4 @@ index b04ea73e00fe0..dc89f7e64b181 100644
    // Returns spacing which is to be used when the link shows before the button
    // on the infobar.
    virtual int GetLinkSpacingWhenPositionedBeforeButton() const;
+

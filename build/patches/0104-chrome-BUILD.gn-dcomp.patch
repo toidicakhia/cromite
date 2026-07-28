@@ -821,3 +821,4 @@ index fb28d2d52e532..0930cb70f00d2 100644
      case gl::mojom::GLImplementation::kGLImplementationMockGL:
        return gl::kGLImplementationMockGL;
      case gl::mojom::GLImplementation::kGLImplementationStubGL:
+

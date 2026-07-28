@@ -55,3 +55,4 @@ index 255ce467197e6..41543fd03b9f2 100644
    return int(ch_as_wide_char);
  #else
    // CharLower is more reliable than towlower in Windows.
+

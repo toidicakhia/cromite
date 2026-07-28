@@ -166,3 +166,4 @@ index f3745e8f22775..4954787482f38 100644
    UpdateDefaultBrowserBeaconWithState(default_state);
    return default_state;
  }
+

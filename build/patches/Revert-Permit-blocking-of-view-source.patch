@@ -30,3 +30,4 @@ diff --git a/components/policy/content/policy_blocklist_navigation_throttle.cc b
          GetViewSourceNavigationBlocklistState();
      if (view_source_blocklist_state.url_blocklist_state ==
 --
+

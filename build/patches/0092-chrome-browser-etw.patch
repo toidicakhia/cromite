@@ -191,3 +191,4 @@ index 7db2a5e541669..c1fd90c900224 100644
    AddAndVerifyProtocolAssociations(kApp1Id, kApp1Name, kApp1Url, GetProfile(),
                                     "");
    base::FilePath app_specific_launcher_path =
+

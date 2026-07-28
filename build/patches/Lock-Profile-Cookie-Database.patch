@@ -84,3 +84,4 @@ diff --git a/services/network/public/mojom/network_context.mojom b/services/netw
    // session cookies are restored. Otherwise it should be false.
    bool restore_old_session_cookies = false;
 --
+

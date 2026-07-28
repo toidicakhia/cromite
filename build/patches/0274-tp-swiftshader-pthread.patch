@@ -148,3 +148,4 @@ index 3a275c9..bd3a2fa 100644
          attributes, 0, PROC_THREAD_ATTRIBUTE_GROUP_AFFINITY, &groupAffinity,
          sizeof(groupAffinity), nullptr, nullptr));
    }
+

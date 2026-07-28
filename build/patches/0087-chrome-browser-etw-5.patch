@@ -984,3 +984,4 @@ index fca1500246f01..19afca4b395cf 100644
  
    // Let the user decide whether or not to play the animation.
    return !gfx::Animation::ShouldRenderRichAnimation();
+

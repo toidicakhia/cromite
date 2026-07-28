@@ -605,3 +605,4 @@ index 689dba10f01..e1a1ef1a612 100644
 +        c::DeleteCriticalSection(UnsafeCell::raw_get(self.inner.as_ptr()));
      }
  }
+

@@ -20,3 +20,4 @@ index 6b1e666..8730ebb 100644
    thread_local
  #endif
        ShapeGenerationResources shape_gen;
+

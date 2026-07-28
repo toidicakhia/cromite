@@ -83,3 +83,4 @@ diff --git a/ui/views/win/pen_id_handler.cc b/ui/views/win/pen_id_handler.cc
    return base::win::OSInfo::Kernel32Version() >
               base::win::Version::WIN10_21H2 ||
 --
+

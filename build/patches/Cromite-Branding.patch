@@ -19427,3 +19427,4 @@ diff --git a/tools/grit/grit/grd_reader.py b/tools/grit/grit/grd_reader.py
  class GrdPartContentHandler(xml.sax.handler.ContentHandler):
    def __init__(self, parent):
 --
+

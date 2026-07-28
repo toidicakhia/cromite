@@ -31,3 +31,4 @@ index d0c71f9a0cc91..9a7fc329e0d59 100644
    // See if caller wants the NTSTATUS.
    if (error_code)
      *error_code = status;
+

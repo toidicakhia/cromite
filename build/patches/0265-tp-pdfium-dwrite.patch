@@ -31,3 +31,4 @@ index 1d0206d8f..ddc261e99 100644
  #elif BUILDFLAG(IS_APPLE)
    return SkFontMgr_New_CoreText(nullptr);
  #else
+

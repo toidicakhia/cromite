@@ -20,3 +20,4 @@ index 53920788528b4..7ece3c9b4ebc0 100644
  const base::FeatureParam<FontDataServiceTypefaceType>::Option
      font_data_service_typeface[] = {
          {FontDataServiceTypefaceType::kDwrite, "DWrite"},
+

@@ -60,3 +60,4 @@ index 0a32399fa1285..3f67ff223d87e 100644
    EXPECT_EQ(null_string.Get(), nullptr);
    VerifyHSTRINGEquals(null_string.Get(), kEmptyString);
  }
+

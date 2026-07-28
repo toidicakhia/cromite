@@ -37,3 +37,4 @@ index c1c3a60b009e4..c49c82226481b 100644
  // Inspects the signature algorithms in a single certificate |cert|.
  //
  //   * Sets |verify_result->has_sha1| to true if the certificate uses SHA1.
+

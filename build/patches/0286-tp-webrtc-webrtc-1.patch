@@ -28,3 +28,4 @@ index 0b7e3fc437..366bc6e419 100644
      result = std::wstring(path, path_len);
    } else {
      RTC_LOG_GLE(LS_ERROR) << "QueryFullProcessImageName failed.";
+

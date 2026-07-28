@@ -230,3 +230,4 @@ index 788fba35bc565..2c963a7ba7e41 100644
 +      localeNameToLCID(base::as_wcstr(language), LOCALE_ALLOW_NEUTRAL_NAMES);
    if (!lcid)
      return std::nullopt;
+

@@ -330,3 +330,4 @@ diff --git a/third_party/boringssl/src/ssl/s3_both.cc b/third_party/boringssl/sr
        Span<const uint8_t> chunk =
            rest.first(std::min(size_t{ssl->max_send_fragment}, rest.size()));
 --
+

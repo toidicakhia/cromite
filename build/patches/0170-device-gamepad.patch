@@ -104,3 +104,4 @@ index aa06285561f8d..fe8aa1163377d 100644
 +
    base::ScopedNativeLibrary xinput_dll_;
    bool xinput_available_;
+

@@ -162,3 +162,4 @@ index 41e5fa44..0a80fd53 100644
 +RTL_UNLOAD_EVENT_TRACE<Traits>* RtlGetUnloadEventTrace();
  
  }  // namespace crashpad
+

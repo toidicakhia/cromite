@@ -64,3 +64,4 @@ index a30aed9f058e0..f659a5dd81065 100644
  GL_EXPORT extern const char kGLImplementationEGLName[];
  GL_EXPORT extern const char kGLImplementationANGLEName[];
  GL_EXPORT extern const char kGLImplementationMockName[];
+

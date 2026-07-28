@@ -42,3 +42,4 @@ diff --git a/components/browser_ui/settings/android/java/src/org/chromium/compon
       * A helper that is used to load preferences from XML resources without causing a
       * StrictModeViolation. See http://crbug.com/692125.
 --
+

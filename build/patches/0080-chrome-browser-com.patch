@@ -39,3 +39,4 @@ index 58e111d61ca58..637ff11a0d86c 100644
    class CaptionButtonMetrics;
  
    // Describes the type of titlebar that a window might have; used to query
+

@@ -30,3 +30,4 @@ index 11c9d111a3d0d..d49d72f25f8ed 100644
  
    if (!CryptAcquireCertificatePrivateKey(cert_context, flags, nullptr,
                                           &prov_or_key, &key_spec, &must_free)) {
+

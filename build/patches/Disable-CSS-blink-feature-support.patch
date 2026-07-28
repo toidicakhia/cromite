@@ -166,3 +166,4 @@ diff --git a/third_party/blink/renderer/platform/BUILD.gn b/third_party/blink/re
    if (current_cpu == "loong64") {
      cflags = [
 --
+

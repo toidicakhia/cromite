@@ -256,3 +256,4 @@ index 942a39827d812..a63c520c70148 100644
      ASSERT_NO_FATAL_FAILURE(scoped_interop_.SetUp());
      operation_ = std::make_unique<ShowShareUIForWindowOperation>(hwnd_);
      auto weak_ptr = weak_factory_.GetWeakPtr();
+

@@ -151,3 +151,4 @@ index 55180863a..c5c083a15 100644
  bool HasRcpApprox()
  {
  	// TODO(b/175612820): Update once we implement x86 SSE rcp_ss and rsqrt_ss intrinsics in Subzero
+

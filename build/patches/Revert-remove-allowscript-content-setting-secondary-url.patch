@@ -398,3 +398,4 @@ diff --git a/third_party/blink/renderer/core/loader/worker_fetch_context.h b/thi
    void DispatchDidBlockRequest(const ResourceRequest&,
                                 const ResourceLoaderOptions&,
 --
+

@@ -20,3 +20,4 @@ diff --git a/chrome/browser/ui/side_search/side_search_prefs.cc b/chrome/browser
  
  }  // namespace side_search_prefs
 --
+

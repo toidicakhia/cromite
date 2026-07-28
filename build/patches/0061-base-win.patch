@@ -49,3 +49,4 @@ index 42d3fa3bc82b4..4ccdeafc30cf4 100644
    if (FAILED(InitPropVariantFromCLSID(property_clsid_value,
                                        property_value.Receive()))) {
      return false;
+

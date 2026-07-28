@@ -32,3 +32,4 @@ index 2370aa3aad..fbd2581d41 100644
 +        pfnCompareObjectHandles&&pfnCompareObjectHandles(queueFence->GetSystemHandle().Get(), descriptor->handle)) {
          return queueFence;
      }
+

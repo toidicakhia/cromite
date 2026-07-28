@@ -40,3 +40,4 @@ index adc99338e7342..11299426bd345 100644
                                      base::WriteInto(&path_buffer, path_length));
    if (result != ERROR_SUCCESS) {
      return base::FilePath();
+

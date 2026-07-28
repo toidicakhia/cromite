@@ -194,3 +194,4 @@ index 7d2cf25ace022..ef3ea5cb0c4ed 100644
    // True if HandleWindowSizeChanging has been called in the delegate, but not
    // HandleClientSizeChanged.
    bool sent_window_size_changing_;
+

@@ -32,3 +32,4 @@ index e4ff56b7a9201..3267742c149c9 100644
         remote_process_id == base::Process::Current().Pid())) {
      DVLOG(2) << "Failed to get remote process id via the connected named pipe";
      return base::Process();
+

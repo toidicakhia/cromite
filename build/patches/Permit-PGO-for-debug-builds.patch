@@ -19,3 +19,4 @@ diff --git a/build/config/compiler/pgo/pgo.gni b/build/config/compiler/pgo/pgo.g
 +# assert(!is_debug || chrome_pgo_phase == 0,
 +#        "Cannot have a debug build optimized with PGO")
 --
+

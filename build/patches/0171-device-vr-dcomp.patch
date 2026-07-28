@@ -657,3 +657,4 @@ index c61a1a2ce7459..62785526b4023 100644
    if (SUCCEEDED(hr)) {
      gpu_vendor_id_ = adapter_desc.VendorId;
    } else {
+

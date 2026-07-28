@@ -3349,3 +3349,4 @@ diff --git a/ui/android/overscroll_refresh_handler.h b/ui/android/overscroll_ref
    base::android::ScopedJavaLocalRef<jobject> GetRefreshHandlerChecked(
        JNIEnv* env) const;
 --
+

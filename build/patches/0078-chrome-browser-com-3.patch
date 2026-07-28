@@ -42,3 +42,4 @@ index 2d34ec6143a08..faebf636f3377 100644
  
    // Write current executable path to the User Data directory to inform
    // Progressive Web App launchers, which run from within the User Data
+

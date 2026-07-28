@@ -32,3 +32,4 @@ index 042945f607b8f..6e1417aa40076 100644
  
  config("console") {
    ldflags = [ "/SUBSYSTEM:CONSOLE$subsystem_version_suffix" ]
+

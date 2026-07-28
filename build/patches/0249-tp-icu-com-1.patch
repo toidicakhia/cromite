@@ -587,3 +587,4 @@ index 9af0bb3c..cc8b0a43 100644
  
      // Now we should have a Windows locale name that needs converted to the POSIX style.
      if (length > 0) // If length is 0, then the GetLocaleInfoEx failed.
+

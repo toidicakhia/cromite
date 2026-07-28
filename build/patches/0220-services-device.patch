@@ -71,3 +71,4 @@ index ff78f118..32c61f2 100644
 +  BOOL success = PowerClearRequestFn(request_handle.Get(), type);
    DCHECK(success);
  }
+

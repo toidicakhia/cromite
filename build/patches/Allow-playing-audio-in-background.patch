@@ -62,3 +62,4 @@ diff --git a/third_party/blink/renderer/platform/media/web_media_player_impl.h b
        std::optional<WebMediaPlayer::TrackId> enabled_track_id) override;
    void SelectedVideoTrackChanged(
 --
+

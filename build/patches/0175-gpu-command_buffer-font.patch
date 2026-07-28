@@ -90,3 +90,4 @@ index 83717873d6893..3631af6cc9587 100644
 +  return skia::DefaultFontMgr();
 +}
 +#endif
+

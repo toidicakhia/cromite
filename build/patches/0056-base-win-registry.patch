@@ -83,3 +83,4 @@ index 1c57fc9f537d7..4b859440eb9b3 100644
    // Opens the key `subkey` under `rootkey` with the given options and
    // access rights. `options` may be 0 or `REG_OPTION_OPEN_LINK`. Returns
    // ERROR_SUCCESS or a Windows error code.
+

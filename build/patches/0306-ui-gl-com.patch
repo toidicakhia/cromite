@@ -41,3 +41,4 @@ index 2216b9ffbc707..256d8b555f7af 100644
    } else {
      DCHECK(!attribs.robust_resource_initialization);
    }
+

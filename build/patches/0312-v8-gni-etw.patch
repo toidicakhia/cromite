@@ -36,3 +36,4 @@ index 6e4f6003ca0..95ad708515e 100644
  #endif  // V8_ENABLE_ETW_STACK_WALKING
  
  bool v8::Object::IsCodeLike(v8::Isolate* v8_isolate) const {
+

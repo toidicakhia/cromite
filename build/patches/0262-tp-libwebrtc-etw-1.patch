@@ -38,3 +38,4 @@ index 1688878cded5..2d60bde31c25 100644
        reinterpret_cast<HWND>(GetSourceId()), DWMWA_EXTENDED_FRAME_BOUNDS,
        reinterpret_cast<void*>(&window_rect), sizeof(window_rect));
    if (FAILED(hr))
+

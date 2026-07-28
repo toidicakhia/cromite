@@ -62,3 +62,4 @@ index 0247ed5b5ad73..ec2bc2b671e28 100644
 +  DPLOG_IF(ERROR, !success)
        << "Failed to set EcoQoS to " << std::boolalpha << desire_ecoqos;
  }
+

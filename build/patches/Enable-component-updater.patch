@@ -869,3 +869,4 @@ diff --git a/extensions/browser/sandboxed_unpacker.cc b/extensions/browser/sandb
    switch (result) {
      case crx_file::VerifierResult::OK_FULL: {
 --
+

@@ -45,3 +45,4 @@ index ea0ec0bcdf667..43678e39b310a 100644
    return !ShouldDefaultThemeUseMicaTitlebar() ||
           !ThemeServiceFactory::GetForProfile(browser_view->GetProfile())
                ->UsingSystemTheme() ||
+

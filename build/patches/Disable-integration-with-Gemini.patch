@@ -817,3 +817,4 @@ diff --git a/components/browser_sync/BUILD.gn b/components/browser_sync/BUILD.gn
      "//components/sync/invalidations",
      "//components/sync_bookmarks",
 --
+

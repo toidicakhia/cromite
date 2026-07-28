@@ -19,3 +19,4 @@ diff --git a/components/subresource_filter/content/browser/profile_interaction_m
    // currently primary.
    CHECK(page_);
 --
+

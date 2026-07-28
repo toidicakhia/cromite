@@ -195,3 +195,4 @@ index 114eebd9160a9..f28d9a63fb3c9 100644
    void OpenDatabase(content::WebContents* tab) const;
    void CloseDatabase(content::WebContents* tab) const;
    void DeleteDatabase(content::WebContents* tab) const;
+

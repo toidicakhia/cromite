@@ -25,3 +25,4 @@ index b6d38f251a755..0501615cbe592 100644
          reinterpret_cast<HANDLE>(socket_),
          FILE_SKIP_COMPLETION_PORT_ON_SUCCESS);
      skip_completion_port_on_success_ = (result != 0);
+

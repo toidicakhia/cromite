@@ -45,3 +45,4 @@ index 987337c93..5a9f4d129 100644
  #define LOADER_PLATFORM_THREAD_ONCE(ctl, func) loader_platform_thread_win32_once_fn(ctl, func);
  #else
  #define LOADER_PLATFORM_THREAD_ONCE_DECLARATION(var)
+

@@ -345,3 +345,4 @@ index def0830642ca4..192a80484245d 100644
 +  // Windows 8 and above.
    return flags & (MITIGATION_BOTTOM_UP_ASLR | MITIGATION_DLL_SEARCH_ORDER);
  }
+

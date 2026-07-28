@@ -25,3 +25,4 @@ index 384f90a02dfc7..3816af0e40301 100644
                                   command_line.GetProgram().value().c_str(),
                                   command_line.GetCommandLineString().data(), 0,
                                   nullptr, nullptr, startupinfo.startup_info(),
+

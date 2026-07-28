@@ -30,3 +30,4 @@ index d71bd63281f51..f8a50e5081e8a 100644
 +           : "advapi32.dll");
  
    is_patched = true;
+

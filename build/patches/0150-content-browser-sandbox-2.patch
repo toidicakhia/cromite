@@ -101,3 +101,4 @@ index 7804830e0e3b0..b3beaa1859443 100644
      // Desktop access is needed to load user32.dll, we can lower token in child
      // process after that's done.
      if (CanLowIntegrityAccessDesktop()) {
+

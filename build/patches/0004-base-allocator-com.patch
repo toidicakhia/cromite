@@ -28,3 +28,4 @@ index 587224026e327..65d24c9f74f22 100644
 +PartitionRoot& InternalAllocatorRoot() {
    return *allocator;
  }
+

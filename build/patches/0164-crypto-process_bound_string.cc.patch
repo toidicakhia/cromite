@@ -50,3 +50,4 @@ index 2ca23c54ec2dd..faf6af52e955c 100644
                               CRYPTPROTECTMEMORY_SAME_PROCESS)) {
      return true;
    }
+

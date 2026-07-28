@@ -324,3 +324,4 @@ index e2136ed96ee92..791720d4a9b79 100644
  }
  
  // Observes the screen lock state of Windows and caches the current state. This
+

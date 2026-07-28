@@ -35,3 +35,4 @@ diff --git a/extensions/common/extension.cc b/extensions/common/extension.cc
  // KEY MARKERS
  constexpr char kKeyBeginHeaderMarker[] = "-----BEGIN";
 --
+

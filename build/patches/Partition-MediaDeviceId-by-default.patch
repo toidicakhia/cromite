@@ -65,3 +65,4 @@ diff --git a/content/browser/renderer_host/media/media_devices_manager.cc b/cont
    GetAudioInputCapabilities(request_id, video_input_capabilities_requested,
                              audio_input_capabilities_requested,
 --
+

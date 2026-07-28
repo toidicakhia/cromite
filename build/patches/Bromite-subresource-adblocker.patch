@@ -2025,3 +2025,4 @@ diff --git a/components/subresource_filter/core/common/indexed_ruleset.cc b/comp
                 ? VerifyStatus::kChecksumFailVerifierPass
                 : VerifyStatus::kChecksumFailVerifierFail;
 --
+

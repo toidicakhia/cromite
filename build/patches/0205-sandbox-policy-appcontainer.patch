@@ -447,3 +447,4 @@ index c93d4212a126c..58c69fde95cc9 100644
 +                           config()->ui_exceptions(), config()->memory_limit());
    if (ERROR_SUCCESS != result)
      return SBOX_ERROR_CANNOT_INIT_JOB;
+

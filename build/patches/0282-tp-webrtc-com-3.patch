@@ -49,3 +49,4 @@ index c0144b0ef350..a5b0fc597c1c 100644
    if (SUCCEEDED(hr)) {
      return {static_cast<INT>(dpi_x), static_cast<INT>(dpi_y)};
    }
+

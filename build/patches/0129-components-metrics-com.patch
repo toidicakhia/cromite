@@ -41,3 +41,4 @@ index 4b2270d10a86d..c5bcaa686a30f 100644
      if (firmware_type == FirmwareTypeBios) {
        *bios_type = Motherboard::BiosType::kLegacy;
      } else if (firmware_type == FirmwareTypeUefi) {
+

@@ -899,3 +899,4 @@ index 6c0fe46c6a904..044ebd325408e 100644
    if (!SetupDiGetDeviceProperty(
            device_info_set, &device_info_data, &property_key, &property_type,
            reinterpret_cast<PBYTE>(&property_buffer), sizeof(property_buffer),
+

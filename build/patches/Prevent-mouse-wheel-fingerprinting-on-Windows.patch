@@ -20,3 +20,4 @@ diff --git a/ui/events/blink/web_input_event_builders_win.cc b/ui/events/blink/w
    if (horizontal_scroll) {
      unsigned long scroll_chars = kDefaultScrollCharsPerWheelDelta;
 --
+

@@ -20,3 +20,4 @@ index c51ad032acd3f..e7a194de59010 100644
  
      if (is_component_build) {
        cflags += [
+

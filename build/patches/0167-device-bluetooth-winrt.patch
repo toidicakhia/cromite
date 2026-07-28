@@ -459,3 +459,4 @@ index 2dfa993e55f59..c8ffae8655ccd 100644
 +  xinput_dll_ = base::ScopedNativeLibrary(base::FilePath(XInputDllFileName()));
    xinput_available_ = GetXInputDllFunctionsForWgiDataFetcher();
  }
+

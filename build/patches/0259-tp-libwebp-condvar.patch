@@ -526,3 +526,4 @@ index 5b06d6e2..a1c13f03 100644
  
  #else  // !_WIN32
  #define THREADFN void*
+

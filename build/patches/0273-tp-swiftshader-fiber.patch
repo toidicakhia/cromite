@@ -34,3 +34,4 @@ index f4b6aa8..bc71d66 100644
    out->isFiberFromThread = true;
    MARL_ASSERT(out->fiber != nullptr,
                "ConvertThreadToFiberEx() failed with error 0x%x",
+

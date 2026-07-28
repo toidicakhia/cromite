@@ -316,3 +316,4 @@ index 31c7e554484a8..cbf30b93124b3 100644
 +
    base::FilePath exe_path;
    ASSERT_TRUE(base::PathService::Get(base::FILE_EXE, &exe_path));
+

@@ -36,3 +36,4 @@ index 23c95bad719c7..62a0b3c1f1d17 100644
    // DiscardVirtualMemory is buggy in Win10 SP0, so fall back to MEM_RESET on
    // failure.
    if (ret != ERROR_SUCCESS) {
+

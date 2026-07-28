@@ -155,3 +155,4 @@ index 29ce16d9e83f0..d74a4e793f135 100644
  }
  
  void D3DSharedFence::Update(uint64_t fence_value) {
+

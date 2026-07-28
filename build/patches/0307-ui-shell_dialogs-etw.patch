@@ -706,3 +706,4 @@ index 9f2e7d9a63c8f..39003adca261a 100644
      case SelectFileDialog::SELECT_NONE:
        NOTREACHED();
    }
+

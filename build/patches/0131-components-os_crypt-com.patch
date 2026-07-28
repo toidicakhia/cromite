@@ -106,3 +106,4 @@ index d7ef48b18b1f2..27146ed37de9d 100644
    }
  #endif  // BUILDFLAG(IS_WIN)
    return region;
+

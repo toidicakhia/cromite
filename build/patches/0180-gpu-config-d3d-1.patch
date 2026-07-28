@@ -52,3 +52,4 @@ index 841a1e6fbd0de..7b5ce1f2dfde2 100644
      return false;
  
    base::ScopedNativeLibrary d3d11_library(
+

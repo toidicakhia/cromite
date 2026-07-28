@@ -39,3 +39,4 @@ index 17849d3502c0a..4b632bd8fdf4c 100644
    "dcomp_presenter_unittest.cc": [
      "+ui/base/test/skia_gold_matching_algorithm.h",
      "+ui/base/test/skia_gold_pixel_diff.h",
+

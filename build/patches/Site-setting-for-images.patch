@@ -513,3 +513,4 @@ diff --git a/third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h
    bool image_fetched_ : 1;
    bool stale_while_revalidate_enabled_ : 1;
 --
+

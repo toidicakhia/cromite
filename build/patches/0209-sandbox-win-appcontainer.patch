@@ -59,3 +59,4 @@ index 2840f1a7d994f..4eddb327fade8 100644
                                                             &package_sid_ptr);
    if (FAILED(hr)) {
      return std::nullopt;
+

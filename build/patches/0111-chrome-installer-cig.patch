@@ -5280,3 +5280,4 @@ index 37e2d2a50aa2c..366674cc7582e 100644
      deps = [
        "//base:base_static",  # pe_image
      ]
+

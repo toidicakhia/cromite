@@ -47,3 +47,4 @@ index 8909aaddb98fd..0329447fdd3ad 100644
  std::optional<bool> IsShortcutPinnedToTaskbar(const base::FilePath& shortcut) {
    Microsoft::WRL::ComPtr<IPinnedList3> pinned_list = GetTaskbarPinnedList();
    if (!pinned_list.Get())
+

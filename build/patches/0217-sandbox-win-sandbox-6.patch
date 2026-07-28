@@ -38,3 +38,4 @@ index 1f2509c7abe28..08a9c89485563 100644
  
      applied_flags |=
          combined_flags & (MITIGATION_DEP | MITIGATION_DEP_NO_ATL_THUNK);
+

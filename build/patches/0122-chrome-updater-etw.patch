@@ -109,3 +109,4 @@ index f28fbbfbfce97..22d402c4d76fa 100644
  }
  
  class NetworkFetcher : public update_client::NetworkFetcher {
+

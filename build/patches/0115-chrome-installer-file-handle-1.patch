@@ -152,3 +152,4 @@ index 42c3967abe9de..59c58f0350d97 100644
    }
  
    ::CloseHandle(handle);
+

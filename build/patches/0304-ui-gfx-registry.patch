@@ -29,3 +29,4 @@ index f268dc206f0b3..1b74a7b84570c 100644
            int width_mm;
            int height_mm;
            bool found = GetSizeFromRegistry(device_info_list.get(), &device_info,
+

@@ -21,3 +21,4 @@ diff --git a/build/win/as_invoker.manifest b/build/win/as_invoker.manifest
    <security>
      <requestedPrivileges>
 --
+

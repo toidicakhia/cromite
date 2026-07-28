@@ -30,3 +30,4 @@ diff --git a/chrome/browser/device_api/device_service_impl.cc b/chrome/browser/d
        !IsDevModeInstalledIwaOrigin(render_frame_host(), origin())) {
      device_attribute_api_->ReportNotAffiliatedError(std::move(callback));
 --
+

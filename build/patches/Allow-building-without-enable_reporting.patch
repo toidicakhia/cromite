@@ -559,3 +559,4 @@ diff --git a/third_party/blink/renderer/core/frame/reporting_observer.cc b/third
  
  bool ReportingObserver::Buffered() {
 --
+

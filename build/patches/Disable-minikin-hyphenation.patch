@@ -19,3 +19,4 @@ diff --git a/third_party/blink/public/public_features.gni b/third_party/blink/pu
  # Web Smart Card API is currently supported only on chromeos.
  # TODO(crbug.com/470349523): Migrate more smart card files to this flag.
 --
+

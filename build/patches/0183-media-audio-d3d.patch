@@ -694,3 +694,4 @@ index 48298a2b90508..afbb5edde517f 100644
    MediaFoundationRenderer(scoped_refptr<base::SequencedTaskRunner> task_runner,
                            std::unique_ptr<MediaLog> media_log,
                            LUID gpu_process_adapter_luid,
+
