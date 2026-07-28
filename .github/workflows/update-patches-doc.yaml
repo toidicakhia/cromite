@@ -40,8 +40,13 @@ jobs:
             echo "RTAG=$RTAG"
           fi
 
+      - name: Get branch name
+        run: |
+          BRANCH=${GITHUB_REF_NAME:-master}
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
       - name: Checkout 'uazo/cromite' ${{ env.BRANCH }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
         with:
             repository: 'uazo/cromite'
             ref: ${{ github.event.inputs.rtag }}
@@ -62,7 +67,7 @@ jobs:
           CHANGES=0 && git diff --quiet || CHANGES=1
           echo "CHANGES=$CHANGES" >> $GITHUB_ENV
 
-          if [[ CHANGES -eq 1 ]]; then
+          if [[ $CHANGES -eq 1 ]]; then
               git add docs/*.md
           fi
 
@@ -70,7 +75,7 @@ jobs:
         uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c #v6.1.0
         if: env.CHANGES == '1'
         with:
-          token: ${{ secrets.CROMITE_PULLS }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: cromite
           base: ${{ env.BRANCH }}
           add-paths: |
