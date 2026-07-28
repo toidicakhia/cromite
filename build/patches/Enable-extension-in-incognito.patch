@@ -1186,16 +1186,16 @@ diff --git a/chrome/browser/ui/android/toolbar/java/src/org/chromium/chrome/brow
      /**
       * Constructor.
 @@ -96,7 +98,9 @@ public class ExtensionsMenuCoordinator implements Destroyable, ExtensionsToolbar
-              TabCreator tabCreator,
-              ExtensionsToolbarBridge extensionsToolbarBridge,
-              MenuButtonPinningDelegate menuButtonPinningDelegate,
- -            ExtensionActionListCoordinator extensionActionListCoordinator) {
- +            ExtensionActionListCoordinator extensionActionListCoordinator,
- +            Callback<String> openUrlInCustomTab) {
- +        mOpenUrlInCustomTab = openUrlInCustomTab;
-          mExtensionActionListCoordinator = extensionActionListCoordinator;
-          mContext = context;
-          mCurrentTabSupplier = currentTabSupplier;
+             TabCreator tabCreator,
+             ExtensionsToolbarBridge extensionsToolbarBridge,
+             MenuButtonPinningDelegate menuButtonPinningDelegate,
+-            ExtensionActionListCoordinator extensionActionListCoordinator) {
++            ExtensionActionListCoordinator extensionActionListCoordinator,
++            Callback<String> openUrlInCustomTab) {
++        mOpenUrlInCustomTab = openUrlInCustomTab;
+         mExtensionActionListCoordinator = extensionActionListCoordinator;
+         mContext = context;
+         mCurrentTabSupplier = currentTabSupplier;
 @@ -234,6 +238,14 @@ public class ExtensionsMenuCoordinator implements Destroyable, ExtensionsToolbar
      private void openUrlFromMenu(String url) {
          mExtensionsMenuButton.dismiss();
