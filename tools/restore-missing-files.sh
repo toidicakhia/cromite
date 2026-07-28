@@ -65,19 +65,22 @@ REMAINING=$(wc -l < /tmp/still_missing.txt 2>/dev/null || echo 0)
 if [ "$REMAINING" -gt 0 ]; then
     echo "Trying upstream Chromium googlesource for $REMAINING files..."
 
+    export VERSION BRANCH
+    export RESTORE_DIR="$CHROMIUM_DIR"
+    PARALLEL_DIR=$(mktemp -d)
+
     fetch_file() {
         local file="$1"
-        local dir=$(dirname "$file")
+        local dir=$(dirname "$RESTORE_DIR/$file")
         mkdir -p "$dir"
 
-        # Try tag first (more precise), then branch-head
         for ref in "refs/tags/$VERSION" "refs/branch-heads/$BRANCH"; do
             local url="https://chromium.googlesource.com/chromium/src/+/$ref/$file?format=TEXT"
             local content
-            content=$(curl -sSL --max-time 5 "$url" 2>/dev/null || true)
+            content=$(curl -sSL --max-time 3 "$url" 2>/dev/null || true)
             if [ -n "$content" ] && ! echo "$content" | grep -qi "not found\|404\|not a valid object name\|no such"; then
-                echo "$content" | base64 -d > "$file" 2>/dev/null || true
-                if [ -f "$file" ] && [ -s "$file" ]; then
+                echo "$content" | base64 -d > "$RESTORE_DIR/$file" 2>/dev/null || true
+                if [ -f "$RESTORE_DIR/$file" ] && [ -s "$RESTORE_DIR/$file" ]; then
                     echo "  Restored (googlesource/$ref): $file"
                     return 0
                 fi
@@ -86,16 +89,18 @@ if [ "$REMAINING" -gt 0 ]; then
         return 1
     }
     export -f fetch_file
-    export VERSION BRANCH
 
     > /tmp/restore_failed.txt
-    while IFS='|' read -r idx file; do
-        if fetch_file "$file"; then
-            RESTORED_COUNT=$((RESTORED_COUNT + 1))
-        else
-            echo "$file" >> /tmp/restore_failed.txt
-        fi
-    done < /tmp/still_missing.txt
+    # Process in parallel (16 concurrent workers)
+    cut -d'|' -f2 < /tmp/still_missing.txt | xargs -P 16 -I{} bash -c 'fetch_file "{}" && echo "OK:{}" || echo "FAIL:{}"' > /tmp/fetch_results.txt 2>&1 || true
+
+    # Count successes and record failures
+    grep "^OK:" /tmp/fetch_results.txt | while IFS= read -r line; do
+        RESTORED_COUNT=$((RESTORED_COUNT + 1))
+    done
+    grep "^FAIL:" /tmp/fetch_results.txt | sed 's/^FAIL://' > /tmp/restore_failed.txt
+
+    rm -rf "$PARALLEL_DIR"
 fi
 
 FAILED_COUNT=$(wc -l < /tmp/restore_failed.txt 2>/dev/null || echo 0)
