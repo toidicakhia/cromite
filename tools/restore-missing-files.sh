@@ -1,33 +1,31 @@
 #!/bin/bash
-# Restore missing files referenced by patches.
-# Fetches from chromium git HEAD, upstream Chromium googlesource,
-# or cromite git repo (when provided) as fallback.
-# Usage: restore-missing-files.sh <chromium-src-dir> <patches-dir> <version> [cromite-dir]
+# Restore missing Windows-specific files referenced by Win7 patches.
+# Fetches from git HEAD or upstream Chromium googlesource when files are missing.
+# Usage: restore-missing-files.sh <chromium-src-dir> <patches-dir> <version>
 #   <patches-dir> can also be a file listing patch paths (one per line)
 
 CHROMIUM_DIR=$1
 PATCHES_DIR=$2
 VERSION=$3
-CROMITE_DIR=$4
 
 if [ -z "$CHROMIUM_DIR" ] || [ -z "$PATCHES_DIR" ] || [ -z "$VERSION" ]; then
-    echo "Usage: $0 <chromium-src-dir> <patches-dir> <version> [cromite-dir]"
+    echo "Usage: $0 <chromium-src-dir> <patches-dir> <version>"
     exit 1
 fi
 
 cd "$CHROMIUM_DIR"
 
-# Collect all unique files referenced in all patches (--- a/ paths)
+# Collect all unique files referenced in Win7 patches (--- a/ paths)
 if [ -f "$PATCHES_DIR" ]; then
     # It's a file listing patch paths
     while IFS= read -r p; do
         [ -f "$p" ] && grep '^--- a/' "$p" | sed 's/.*--- a\///'
     done < "$PATCHES_DIR"
 else
-    grep -h '^--- a/' "$PATCHES_DIR"/*.patch 2>/dev/null | sed 's/^--- a\///'
+    grep -h '^--- a/' "$PATCHES_DIR"/0*.patch 2>/dev/null | sed 's/^--- a\///'
 fi | sort -u > /tmp/all_patch_refs.txt
 
-echo "Found $(wc -l < /tmp/all_patch_refs.txt) unique files referenced by patches"
+echo "Found $(wc -l < /tmp/all_patch_refs.txt) unique files referenced by Win7 patches"
 
 # Phase 1: check what's missing
 > /tmp/missing_list.txt
@@ -99,35 +97,6 @@ if [ "$REMAINING" -gt 0 ]; then
         fi
     done < /tmp/still_missing.txt
 fi
-
-# Phase 4: try restoring from cromite git repo for remaining files
-if [ -n "$CROMITE_DIR" ] && [ -d "$CROMITE_DIR/.git" ]; then
-    REMAINING=$(wc -l < /tmp/still_missing.txt 2>/dev/null || echo 0)
-    if [ "$REMAINING" -gt 0 ]; then
-        echo "Trying cromite repo for $REMAINING files..."
-
-        # Collect files that actually exist in cromite repo (created by cromite patches)
-        echo "  Cromite repo: $CROMITE_DIR"
-        NEW_STILL_MISSING=$(mktemp)
-        while IFS='|' read -r idx file; do
-            mkdir -p "$(dirname "$file")"
-            if git -C "$CROMITE_DIR" show HEAD:"$file" > "$file" 2>/dev/null && [ -s "$file" ]; then
-                echo "  Restored (cromite): $file"
-                RESTORED_COUNT=$((RESTORED_COUNT + 1))
-            else
-                rm -f "$file"
-                echo "$idx|$file" >> "$NEW_STILL_MISSING"
-            fi
-        done < /tmp/still_missing.txt
-        mv "$NEW_STILL_MISSING" /tmp/still_missing.txt
-    fi
-fi
-
-# Build final failed list from anything still missing
-> /tmp/restore_failed.txt
-while IFS='|' read -r idx file; do
-    echo "$file" >> /tmp/restore_failed.txt
-done < /tmp/still_missing.txt 2>/dev/null
 
 FAILED_COUNT=$(wc -l < /tmp/restore_failed.txt 2>/dev/null || echo 0)
 echo ""

@@ -22,8 +22,9 @@ echo "" | tee -a ${LOG_FILE}
 echo "Applying patch $PATCH" | tee -a ${LOG_FILE}
 
 # Check all target files exist before attempting apply
+# Exclude files being created by this patch (--- /dev/null)
 _all_files_exist=1
-for _file in $(grep '+++ b/' $PATCH | sed -e 's#+++ [ab]/##'); do
+for _file in $(awk '/^--- \/dev\/null$/{getline; next} /^\+\+\+ b\//{print substr($0, 7)}' "$PATCH"); do
     if [ ! -f "$_file" ]; then
         echo "  Target file missing: $_file" | tee -a ${LOG_FILE}
         _all_files_exist=0

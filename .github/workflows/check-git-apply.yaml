@@ -117,7 +117,7 @@ jobs:
         run: |
           export HOME=$GITHUB_WORKSPACE
           cd ~/chromium/src
-          bash ~/cromite/tools/restore-missing-files.sh ~/chromium/src ~/cromite/build/patches $VERSION ~/cromite
+          bash ~/cromite/tools/restore-missing-files.sh ~/chromium/src ~/cromite/build/patches $VERSION
           cat /tmp/restore_failed.txt >> /tmp/restore_failed_all.txt 2>/dev/null || true
 
       - name: Apply patches ${{ github.event.inputs.rtag }}
