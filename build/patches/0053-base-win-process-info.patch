@@ -55,3 +55,4 @@ index 5fd08d6658ddf..164fd78cdcc6c 100644
 +         set_process_information_fn(process, ProcessPowerThrottling,
                                   &power_throttling, sizeof(power_throttling));
  }
+
