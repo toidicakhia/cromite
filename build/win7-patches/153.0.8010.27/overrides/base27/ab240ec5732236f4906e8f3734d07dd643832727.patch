@@ -1,0 +1,468 @@
+diff --git a/base/win/startup_information.cc b/base/win/startup_information.cc
+index 9986674a05941..aff52eb794bf3 100644
+--- a/base/win/startup_information.cc
++++ b/base/win/startup_information.cc
+@@ -5,6 +5,7 @@
+ 
+ #include "base/win/startup_information.h"
+ 
++#include "base/win/windows_version.h"
+ #include <utility>
+ 
+ namespace {
+diff --git a/chrome/browser/chrome_browser_main_win.cc b/chrome/browser/chrome_browser_main_win.cc
+index bdbf29c44f108..96d3b40ed6e5d 100644
+--- a/chrome/browser/chrome_browser_main_win.cc
++++ b/chrome/browser/chrome_browser_main_win.cc
+@@ -349,7 +349,17 @@ int ChromeBrowserMainPartsWin::PreCreateThreads() {
+         &DumpHungRendererProcessImpl);
+   }
+ 
+-  return ChromeBrowserMainParts::PreCreateThreads();
++  int rv = ChromeBrowserMainParts::PreCreateThreads();
++
++  // TODO(viettrungluu): why don't we run this earlier?
++  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kNoErrorDialogs) &&
++      base::win::GetVersion() < base::win::Version::XP) {
++    chrome::ShowWarningMessageBoxSync(
++        NULL, l10n_util::GetStringUTF16(IDS_PRODUCT_NAME),
++        l10n_util::GetStringUTF16(IDS_UNSUPPORTED_OS_PRE_WIN_XP));
++  }
++
++  return rv;
+ }
+ 
+ void ChromeBrowserMainPartsWin::PostCreateThreads() {
+diff --git a/chrome/browser/diagnostics/recon_diagnostics.cc b/chrome/browser/diagnostics/recon_diagnostics.cc
+index df53527684cda..bc953c110a53b 100644
+--- a/chrome/browser/diagnostics/recon_diagnostics.cc
++++ b/chrome/browser/diagnostics/recon_diagnostics.cc
+@@ -30,6 +30,7 @@
+ #include "components/version_info/version_info.h"
+ 
+ #if BUILDFLAG(IS_WIN)
++#include "base/win/windows_version.h"
+ #include "chrome/installer/util/install_util.h"
+ #endif
+ 
+@@ -187,10 +188,22 @@ class OperatingSystemTest : public DiagnosticsTest {
+   OperatingSystemTest& operator=(const OperatingSystemTest&) = delete;
+ 
+   bool ExecuteImpl(DiagnosticsModel::Observer* observer) override {
+-    // TODO(port): define the OS criteria for Linux and Mac.
+-    RecordSuccess(base::StringPrintf(
+-        "%s %s", base::SysInfo::OperatingSystemName().c_str(),
+-        base::SysInfo::OperatingSystemVersion().c_str()));
++#if BUILDFLAG(IS_WIN)
++    base::win::Version version = base::win::GetVersion();
++    if ((version < base::win::Version::XP) ||
++        ((version == base::win::Version::XP) &&
++         (0))) {
++      RecordFailure(DIAG_RECON_PRE_WINDOW_XP_SP2,
++                    "Must have Windows XP SP2 or later");
++      return false;
++    }
++#else
++// TODO(port): define the OS criteria for Linux and Mac.
++#endif  // defined(OS_WIN)
++    RecordSuccess(
++        base::StringPrintf("%s %s",
++                           base::SysInfo::OperatingSystemName().c_str(),
++                           base::SysInfo::OperatingSystemVersion().c_str()));
+     return true;
+   }
+ };
+
+diff --git a/chrome/browser/google/google_update_win.cc b/chrome/browser/google/google_update_win.cc
+index 93f35e3655051..48df1755ab31e 100644
+--- a/chrome/browser/google/google_update_win.cc
++++ b/chrome/browser/google/google_update_win.cc
+@@ -31,6 +31,7 @@
+ #include "base/win/atl.h"
+ #include "base/win/scoped_bstr.h"
+ #include "base/win/win_util.h"
++#include "base/win/windows_version.h"
+ #include "chrome/browser/google/google_update_app_command.h"
+ #include "chrome/browser/google/switches.h"
+ #include "chrome/common/url_constants.h"
+diff --git a/chrome/browser/net/net_error_diagnostics_dialog_win.cc b/chrome/browser/net/net_error_diagnostics_dialog_win.cc
+index ec33fedcf340a..c693c6861fe0e 100644
+--- a/chrome/browser/net/net_error_diagnostics_dialog_win.cc
++++ b/chrome/browser/net/net_error_diagnostics_dialog_win.cc
+@@ -24,6 +24,7 @@
+ #include "base/task/single_thread_task_runner.h"
+ #include "base/task/task_runner.h"
+ #include "base/threading/thread.h"
++#include "base/win/windows_version.h"
+ #include "chrome/browser/profiles/profile.h"
+ #include "content/public/browser/web_contents.h"
+ #include "ui/gfx/native_ui_types.h"
+diff --git a/ui/gfx/win/get_elevation_icon.cc b/ui/gfx/win/get_elevation_icon.cc
+index 60e606d163e3f..bdd02ee5a2374 100644
+--- a/ui/gfx/win/get_elevation_icon.cc
++++ b/ui/gfx/win/get_elevation_icon.cc
+@@ -13,6 +13,7 @@
+ #include "base/win/com_init_util.h"
+ #include "base/win/scoped_gdi_object.h"
+ #include "base/win/win_util.h"
++#include "base/win/windows_version.h"
+ #include "ui/gfx/geometry/size.h"
+ #include "ui/gfx/win/icon_util.h"
+ 
+diff --git a/chrome/browser/ui/views/status_icons/status_icon_win.cc b/chrome/browser/ui/views/status_icons/status_icon_win.cc
+index 47aa3c9fcb456..7b98969bef7ce 100644
+--- a/chrome/browser/ui/views/status_icons/status_icon_win.cc
++++ b/chrome/browser/ui/views/status_icons/status_icon_win.cc
+@@ -7,6 +7,7 @@
+ #include "base/strings/string_number_conversions.h"
+ #include "base/strings/string_util.h"
+ #include "base/strings/string_util_win.h"
++#include "base/win/windows_version.h"
+ #include "chrome/browser/ui/views/status_icons/status_tray_win.h"
+ #include "third_party/skia/include/core/SkBitmap.h"
+ #include "ui/base/mojom/menu_source_type.mojom.h"
+@@ -127,10 +128,17 @@ void StatusIconWin::DisplayBalloon(
+   base::wcslcpy(icon_data.szInfo, base::as_wcstr(contents));
+   icon_data.uTimeout = 0;
+ 
+-  if (!icon.isNull()) {
++  base::win::Version win_version = base::win::GetVersion();
++  if (!icon.isNull() && win_version != base::win::Version::PRE_XP) {
+     balloon_icon_ = IconUtil::CreateHICONFromSkBitmap(*icon.bitmap());
+-    icon_data.hBalloonIcon = balloon_icon_.get();
+-    icon_data.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
++    if (win_version >= base::win::Version::VISTA) {
++      icon_data.hBalloonIcon = balloon_icon_.get();
++      icon_data.dwInfoFlags = NIIF_USER | NIIF_LARGE_ICON;
++    } else {
++      icon_data.hIcon = balloon_icon_.get();
++      icon_data.uFlags |= NIF_ICON;
++      icon_data.dwInfoFlags = NIIF_USER;
++    }
+   }
+ 
+   BOOL result = Shell_NotifyIcon(NIM_MODIFY, &icon_data);
+diff --git a/chrome/browser/ui/webui/help/version_updater_win.cc b/chrome/browser/ui/webui/help/version_updater_win.cc
+index 9824fcb4c1f3f..43bcd5945b4b3 100644
+--- a/chrome/browser/ui/webui/help/version_updater_win.cc
++++ b/chrome/browser/ui/webui/help/version_updater_win.cc
+@@ -8,6 +8,7 @@
+ #include "base/memory/weak_ptr.h"
+ #include "base/task/thread_pool.h"
+ #include "base/win/win_util.h"
++#include "base/win/windows_version.h"
+ #include "chrome/browser/browser_process.h"
+ #include "chrome/browser/first_run/upgrade_util.h"
+ #include "chrome/browser/google/google_update_win.h"
+diff --git a/chrome/installer/setup/setup_main.cc b/chrome/installer/setup/setup_main.cc
+index 7c3576a4b6d8f..064412f0bb850 100644
+--- a/chrome/installer/setup/setup_main.cc
++++ b/chrome/installer/setup/setup_main.cc
+@@ -41,6 +41,7 @@
+ #include "base/win/scoped_com_initializer.h"
+ #include "base/win/scoped_handle.h"
+ #include "base/win/windows_handle_util.h"
++#include "base/win/windows_version.h"
+ #include "build/branding_buildflags.h"
+ #include "build/build_config.h"
+ #include "chrome/browser/enterprise/connectors/device_trust/key_management/core/network/win_key_network_delegate.h"
+diff --git a/chrome/installer/setup/uninstall.cc b/chrome/installer/setup/uninstall.cc
+index 1224fc1d0df3c..12e4d1ab2e6af 100644
+--- a/chrome/installer/setup/uninstall.cc
++++ b/chrome/installer/setup/uninstall.cc
+@@ -28,6 +28,7 @@
+ #include "base/strings/utf_string_conversions.h"
+ #include "base/win/registry.h"
+ #include "base/win/shortcut.h"
++#include "base/win/windows_version.h"
+ #include "build/branding_buildflags.h"
+ #include "chrome/chrome_elf/blocklist_constants.h"
+ #include "chrome/common/chrome_constants.h"
+diff --git a/chrome/installer/util/shell_util.cc b/chrome/installer/util/shell_util.cc
+index bf8e226b330b2..dc51efdc019b4 100644
+--- a/chrome/installer/util/shell_util.cc
++++ b/chrome/installer/util/shell_util.cc
+@@ -1098,6 +1098,33 @@ ShellUtil::DefaultState ProbeAppIsDefaultHandlers(
+                                : ShellUtil::IS_DEFAULT;
+ }
+ 
++// Probe the current commands registered to handle the shell "open" verb for
++// |protocols| (Windows XP); see ProbeProtocolHandlers.
++ShellUtil::DefaultState ProbeOpenCommandHandlers(
++    const base::FilePath& chrome_exe,
++    base::span<const base::wcstring_view> identifiers,
++    ASSOCIATIONTYPE type) {
++  const HKEY root_key = HKEY_CLASSES_ROOT;
++  std::wstring key_path;
++  base::win::RegKey key;
++  std::wstring value;
++  installer::ProgramCompare chrome_compare(chrome_exe);
++  for (const auto& identifier : identifiers) {
++    // Get the command line from HKCU\<protocol>\shell\open\command.
++    key_path.assign(identifier.c_str()).append(ShellUtil::kRegShellOpen);
++    if (key.Open(root_key, key_path.c_str(),
++                 KEY_QUERY_VALUE) != ERROR_SUCCESS ||
++        key.ReadValue(L"", &value) != ERROR_SUCCESS) {
++      return ShellUtil::NOT_DEFAULT;
++    }
++
++    if (!chrome_compare.Evaluate(value))
++      return ShellUtil::NOT_DEFAULT;
++  }
++
++  return ShellUtil::IS_DEFAULT;
++}
++
+ // Helper function to call `ProbeCurrentDefaultHandlers()` with a single
+ // `identifier`.
+ ShellUtil::DefaultState ProbeSingleCurrentDefaultHandler(
+@@ -1847,30 +1876,34 @@ bool ShellUtil::MakeChromeDefault(BrowserDistribution* dist,
+   // browser.
+   std::wstring app_name = GetApplicationName(chrome_exe);
+ 
+-  // On Windows 7 we still can set ourselves via the the
+-  // IApplicationAssociationRegistration interface.
+-  VLOG(1) << "Registering Chrome as default browser on Windows 7.";
+-  Microsoft::WRL::ComPtr<IApplicationAssociationRegistration> pAAR;
+-  HRESULT hr = ::CoCreateInstance(CLSID_ApplicationAssociationRegistration,
+-                                  nullptr, CLSCTX_INPROC, IID_PPV_ARGS(&pAAR));
+-  if (SUCCEEDED(hr)) {
+-    for (int i = 0; kBrowserProtocolAssociations[i] != nullptr; i++) {
+-      hr = pAAR->SetAppAsDefault(
+-          app_name.c_str(), kBrowserProtocolAssociations[i], AT_URLPROTOCOL);
+-      if (!SUCCEEDED(hr)) {
+-        ret = false;
+-        LOG(ERROR) << "Failed to register as default for protocol "
+-                   << kBrowserProtocolAssociations[i] << " (" << hr << ")";
++  if (base::win::GetVersion() >= base::win::Version::VISTA) {
++    // On Windows Vista and Win7 we still can set ourselves via the
++    // the IApplicationAssociationRegistration interface.
++    VLOG(1) << "Registering Chrome as default browser on Vista.";
++    Microsoft::WRL::ComPtr<IApplicationAssociationRegistration> pAAR;
++    HRESULT hr = ::CoCreateInstance(CLSID_ApplicationAssociationRegistration,
++                                    nullptr, CLSCTX_INPROC, IID_PPV_ARGS(&pAAR));
++    if (SUCCEEDED(hr)) {
++      for (int i = 0; kBrowserProtocolAssociations[i] != nullptr; i++) {
++        hr = pAAR->SetAppAsDefault(app_name.c_str(),
++            kBrowserProtocolAssociations[i], AT_URLPROTOCOL);
++        if (!SUCCEEDED(hr)) {
++          ret = false;
++          LOG(ERROR) << "Failed to register as default for protocol "
++                     << kBrowserProtocolAssociations[i]
++                     << " (" << hr << ")";
++        }
+       }
+-    }
+ 
+-    for (int i = 0; kDefaultFileAssociations[i] != nullptr; i++) {
+-      hr = pAAR->SetAppAsDefault(app_name.c_str(), kDefaultFileAssociations[i],
+-                                 AT_FILEEXTENSION);
+-      if (!SUCCEEDED(hr)) {
+-        ret = false;
+-        LOG(ERROR) << "Failed to register as default for file extension "
+-                   << kDefaultFileAssociations[i] << " (" << hr << ")";
++      for (int i = 0; kDefaultFileAssociations[i] != nullptr; i++) {
++        hr = pAAR->SetAppAsDefault(app_name.c_str(),
++            kDefaultFileAssociations[i], AT_FILEEXTENSION);
++        if (!SUCCEEDED(hr)) {
++          ret = false;
++          LOG(ERROR) << "Failed to register as default for file extension "
++                     << kDefaultFileAssociations[i]
++                     << " (" << hr << ")";
++        }
+       }
+     }
+   }
+@@ -1949,22 +1982,24 @@ bool ShellUtil::MakeChromeDefaultProtocolClient(
+     return false;
+ 
+   bool ret = true;
+-  // First use the "recommended" way introduced in Vista to make Chrome default
++  // First use the new "recommended" way on Vista to make Chrome default
+   // protocol handler.
+-  VLOG(1) << "Registering Chrome as default handler for " << protocol
+-          << " on Windows 7.";
+-  Microsoft::WRL::ComPtr<IApplicationAssociationRegistration> pAAR;
+-  HRESULT hr = ::CoCreateInstance(CLSID_ApplicationAssociationRegistration,
+-                                  nullptr, CLSCTX_INPROC, IID_PPV_ARGS(&pAAR));
+-  if (SUCCEEDED(hr)) {
+-    std::wstring app_name = GetApplicationName(chrome_exe);
+-    hr = pAAR->SetAppAsDefault(app_name.c_str(), protocol.c_str(),
+-                               AT_URLPROTOCOL);
+-  }
+-  if (!SUCCEEDED(hr)) {
+-    ret = false;
+-    LOG(ERROR) << "Could not make Chrome default protocol client (Windows 7):"
+-               << " HRESULT=" << hr << ".";
++  if (base::win::GetVersion() >= base::win::Version::VISTA) {
++    VLOG(1) << "Registering Chrome as default handler for " << protocol
++            << " on Vista.";
++    Microsoft::WRL::ComPtr<IApplicationAssociationRegistration> pAAR;
++    HRESULT hr = ::CoCreateInstance(CLSID_ApplicationAssociationRegistration,
++                                    nullptr, CLSCTX_INPROC, IID_PPV_ARGS(&pAAR));
++    if (SUCCEEDED(hr)) {
++      std::wstring app_name = GetApplicationName(chrome_exe);
++      hr = pAAR->SetAppAsDefault(app_name.c_str(), protocol.c_str(),
++                                 AT_URLPROTOCOL);
++    }
++    if (!SUCCEEDED(hr)) {
++      ret = false;
++      LOG(ERROR) << "Could not make Chrome default protocol client (Vista):"
++                 << " HRESULT=" << hr << ".";
++    }
+   }
+ 
+   // Now use the old way to associate Chrome with the desired protocol. This
+diff --git a/chrome/utility/importer/ie_importer_win.cc b/chrome/utility/importer/ie_importer_win.cc
+index 1c8c05776058b..e91834d0dfa4d 100644
+--- a/chrome/utility/importer/ie_importer_win.cc
++++ b/chrome/utility/importer/ie_importer_win.cc
+@@ -31,6 +31,7 @@
+ #include "base/win/scoped_co_mem.h"
+ #include "base/win/scoped_handle.h"
+ #include "base/win/scoped_propvariant.h"
++#include "base/win/windows_version.h"
+ #include "chrome/common/importer/edge_importer_utils_win.h"
+ #include "chrome/common/importer/ie_importer_utils_win.h"
+ #include "chrome/common/importer/importer_bridge.h"
+@@ -52,6 +53,8 @@ const base::char16 kSearchScopePath[] =
+ const wchar_t kSearchScopePath[] =
+     L"Software\\Microsoft\\Internet Explorer\\SearchScopes";
+ const wchar_t kIEVersionKey[] = L"Software\\Microsoft\\Internet Explorer";
++const wchar_t kIEToolbarKey[] =
++  L"Software\\Microsoft\\Internet Explorer\\Toolbar";
+ 
+ // NTFS stream name of favicon image data.
+ const wchar_t kFaviconStreamName[] = L":favicon:$DATA";
+@@ -798,17 +801,26 @@ bool IEImporter::GetFavoritesInfo(IEImporter::FavoritesInfo* info) {
+ 
+   // IE stores the favorites in the Favorites under user profile's folder.
+   wchar_t buffer[MAX_PATH];
+-  if (FAILED(SHGetFolderPath(NULL, CSIDL_FAVORITES, NULL, SHGFP_TYPE_CURRENT,
+-                             buffer))) {
++  if (FAILED(SHGetFolderPath(NULL, CSIDL_FAVORITES, NULL,
++                             SHGFP_TYPE_CURRENT, buffer)))
+     return false;
+-  }
+-
+-  // There is a Links folder under Favorites folder since Windows Vista, but it
+-  // is not recording in Vista's registry. So we assume the Links folder is
+-  // under Favorites folder since it looks like there is not name different in
+-  // every language version of Windows.
+   info->path = base::FilePath(buffer);
+-  info->links_folder = u"Links";
++
++  // There is a Links folder under Favorites folder in Windows Vista, but it
++  // is not recording in Vista's registry. So in Vista, we assume the Links
++  // folder is under Favorites folder since it looks like there is not name
++  // different in every language version of Windows Vista.
++  if (base::win::GetVersion() < base::win::Version::VISTA) {
++    // The Link folder name is stored in the registry.
++    DWORD buffer_length = sizeof(buffer);
++    base::win::RegKey reg_key(HKEY_CURRENT_USER, kIEToolbarKey, KEY_READ);
++    if (reg_key.ReadValue(L"LinksFolderName", buffer,
++                          &buffer_length, NULL) != ERROR_SUCCESS)
++      return false;
++    info->links_folder = base::as_u16cstr(buffer);
++  } else {
++    info->links_folder = u"Links";
++  }
+ 
+   return true;
+ }
+diff --git a/chrome/app/chromium_strings.grd b/chrome/app/chromium_strings.grd
+index a741f89bf5..2396733b9b 100644
+--- a/chrome/app/chromium_strings.grd
++++ b/chrome/app/chromium_strings.grd
+@@ -357,6 +357,11 @@ If you update this file, be sure also to update google_chrome_strings.grd. -->
+       <message name="IDS_ACCESSIBILITY_TOOLBAR_BTN_IDENTITY_DISC_WITH_NAME_AI_TIER" desc="The content description for a toolbar button displaying user profile picture when the user has an AI subscription, for users who don't have a readable email address. Tapping on this button navigates to Settings page" formatter_data="android_java">
+         Signed in as <ph name="USER_NAME">%s<ex>Bruce Wayne</ex></ph>, membership. Open the account menu
+       </message>
++      <if expr="is_win">
++        <message name="IDS_SHORTCUT_NEW_WINDOW" desc="The text label of the New window shortcut context menu entry as of Windows 8">
++          New window
++        </message>
++      </if>
+       <if expr="is_macosx or is_chromeos">
+         <message name="IDS_TASK_MANAGER_TITLE" desc="The title of the Task Manager window">
+           Task Manager
+@@ -613,6 +618,12 @@ New bookmarks can’t be saved in your account until you delete some. If you sig
+       <message name="IDS_DEFAULT_BROWSER_CHANGED_MESSAGE" desc="Body of the notification shown when Chrome is no longer the default browser.">
+         Chromium is no longer your default browser. Make Chromium the default browser?
+       </message>
++      <!-- Strings used to warn that an OS is not supported -->
++      <if expr="is_win">
++        <message name="IDS_UNSUPPORTED_OS_PRE_WIN_XP" desc="The text used to warn the user that Windows pre-XP is not supported">
++          Chromium requires Windows XP or later. Some features may not work.
++        </message>
++      </if>
+       <if expr="is_win">
+         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_PAGE_TITLE" desc="Title of the default browser visual guided setter page.">
+           Set Chromium as your default browser
+@@ -732,7 +743,7 @@ Chromium is unable to recover your settings.
+           Can not install the same Chromium version that is currently running. Please close Chromium and try again.
+         </message>
+         <message name="IDS_INSTALL_OS_NOT_SUPPORTED" desc="Error displayed if OS is not supported">
+-          Chromium requires Windows 10 or higher.
++          Chromium requires Windows Vista or Windows XP with SP2 or higher.
+         </message>
+         <message name="IDS_INSTALL_OS_ERROR" desc="Error displayed when any Windows API call fails and we do not have more specific information.">
+           An operating system error occurred during installation. Please download Chromium again.
+@@ -780,6 +791,9 @@ Chromium is unable to recover your settings.
+         <message name="IDS_UNINSTALL_DELETE_PROFILE" desc="Text to show user to ask whether to delete all the profile data also during uninstallation.">
+           Also delete your browsing data?
+         </message>
++        <message name="IDS_UNINSTALL_SET_DEFAULT_BROWSER" desc="Text to ask whether to set another browser as default when Chromium is uninstalled.">
++          Change default browser to:
++        </message>
+         <message name="IDS_UNINSTALL_BUTTON_TEXT" desc="Label for uninstall button on Uninstall confirmation dialog.">
+           Uninstall
+         </message>
+diff --git a/chrome/app/google_chrome_strings.grd b/chrome/app/google_chrome_strings.grd
+index fb32c7a712..f42e22d6ac 100644
+--- a/chrome/app/google_chrome_strings.grd
++++ b/chrome/app/google_chrome_strings.grd
+@@ -358,6 +358,11 @@ chromium_strings.grd. -->
+       <message name="IDS_ACCESSIBILITY_TOOLBAR_BTN_IDENTITY_DISC_WITH_NAME_AI_TIER" desc="The content description for a toolbar button displaying user profile picture when the user has an AI subscription, for users who don't have a readable email address. Tapping on this button navigates to Settings page" formatter_data="android_java">
+         Signed in as <ph name="USER_NAME">%s<ex>Bruce Wayne</ex></ph>, Google membership. Open the account menu
+       </message>
++      <if expr="is_win">
++        <message name="IDS_SHORTCUT_NEW_WINDOW" desc="The text label of the New window shortcut context menu entry as of Windows 8">
++          New window
++        </message>
++      </if>
+       <if expr="is_macosx or is_chromeos">
+         <message name="IDS_TASK_MANAGER_TITLE" desc="The title of the Task Manager window">
+           Task Manager
+@@ -586,6 +591,12 @@ New bookmarks can’t be saved in your account until you delete some. If you sig
+       <message name="IDS_DEFAULT_BROWSER_CHANGED_MESSAGE" desc="Body of the notification shown when Chrome is no longer the default browser.">
+         Chrome is no longer your default browser. Make Chrome the default browser?
+       </message>
++      <!-- Strings used to warn that an OS is not supported -->
++      <if expr="is_win">
++        <message name="IDS_UNSUPPORTED_OS_PRE_WIN_XP" desc="The text used to warn the user that Windows pre-XP is not supported">
++          Google Chrome requires Windows XP or later. Some features may not work.
++        </message>
++      </if>
+       <if expr="is_win">
+         <message name="IDS_DEFAULT_BROWSER_VISUAL_GUIDED_SETTER_PAGE_TITLE" desc="Title of the default browser visual guided setter page.">
+           Set Chrome as your default browser
+@@ -712,7 +723,7 @@ Google Chrome is unable to recover your settings.
+           Can not install the same Google Chrome version that is currently running. Please close Google Chrome and try again.
+         </message>
+         <message name="IDS_INSTALL_OS_NOT_SUPPORTED" desc="Error displayed if OS is not supported">
+-          Google Chrome requires Windows 10 or higher.
++          Google Chrome requires Windows Vista or Windows XP with SP2 or higher.
+         </message>
+         <message name="IDS_INSTALL_OS_ERROR" desc="Error displayed when any Windows API call fails and we do not have more specific information.">
+           An operating system error occurred during installation. Please download Google Chrome again.
+@@ -760,6 +771,9 @@ Google Chrome is unable to recover your settings.
+         <message name="IDS_UNINSTALL_DELETE_PROFILE" desc="Text to show user to ask whether to delete all the profile data also during uninstallation.">
+           Also delete your browsing data?
+         </message>
++        <message name="IDS_UNINSTALL_SET_DEFAULT_BROWSER" desc="Text to ask whether to set another browser as default when Chromium is uninstalled.">
++          Change default browser to:
++        </message>
+         <message name="IDS_UNINSTALL_BUTTON_TEXT" desc="Label for uninstall button on Uninstall confirmation dialog.">
+           Uninstall
+         </message>
