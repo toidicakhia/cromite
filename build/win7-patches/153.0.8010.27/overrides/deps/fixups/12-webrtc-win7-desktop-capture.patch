@@ -1,0 +1,86 @@
+diff --git a/third_party/webrtc/modules/desktop_capture/win/dxgi_output_duplicator.cc b/modules/desktop_capture/win/dxgi_output_duplicator.cc
+index de45ee1..c1eb133 100644
+--- a/third_party/webrtc/modules/desktop_capture/win/dxgi_output_duplicator.cc
++++ b/third_party/webrtc/modules/desktop_capture/win/dxgi_output_duplicator.cc
+@@ -445,40 +445,43 @@ std::optional<float> DxgiOutputDuplicator::device_scale_factor() const {
+ #define GETPERCENT(dpi) ((dpi * 100 + 50) / 96)
+ typedef HRESULT (* LPFNDLLFUNC1)(HMONITOR,DEVICE_SCALE_FACTOR *);
+ HINSTANCE hDLL;               // Handle to DLL
+-LPFNDLLFUNC1 lpfnDllFunc1;    // Function pointer
++LPFNDLLFUNC1 lpfnDllFunc1 = NULL;    // Function pointer
+ hDLL = LoadLibrary(TEXT("Shcore.dll"));
+ if (hDLL != NULL)
+ {
+    lpfnDllFunc1 = (LPFNDLLFUNC1)GetProcAddress(hDLL,
+                                            "GetScaleFactorForMonitor");
+-   if (!lpfnDllFunc1)
+-   {
+-      // handle the error
+-      FreeLibrary(hDLL);
+-        //---- set screen dpi (per session) ----
+-        HDC hdc = GetWindowDC(NULL);
+-        if (! hdc)
+-        {
+-           RTC_LOG(LS_ERROR) << "Failed to get scale factor for monitor: ";
+-           return std::nullopt;
+-        }
+-        else
+-        {
+-            int iDpi = GetDeviceCaps(hdc, LOGPIXELSX);
+-            ReleaseDC(NULL, hdc);
+-            device_scale_factor = (DEVICE_SCALE_FACTOR) GETPERCENT(iDpi);
+-        }
+-   }
+-   else
++   if (lpfnDllFunc1)
+    {
+       // call the function
+       HRESULT hr = lpfnDllFunc1(monitor_, &device_scale_factor);
+       if (FAILED(hr)) {
+         RTC_LOG(LS_ERROR) << "Failed to get scale factor for monitor: " << hr;
++        FreeLibrary(hDLL);
+         return std::nullopt;
+       }
++      FreeLibrary(hDLL);
++      RTC_DCHECK(device_scale_factor != DEVICE_SCALE_FACTOR_INVALID);
++      return static_cast<float>(device_scale_factor) / 100.0f;
+    }
++   // handle the error
++   FreeLibrary(hDLL);
+ }
++  // Shcore.dll is unavailable (e.g. on Windows 7), or
++  // GetScaleFactorForMonitor could not be resolved.
++  //---- set screen dpi (per session) ----
++  HDC hdc = GetWindowDC(NULL);
++  if (! hdc)
++  {
++     RTC_LOG(LS_ERROR) << "Failed to get scale factor for monitor: ";
++     return std::nullopt;
++  }
++  else
++  {
++      int iDpi = GetDeviceCaps(hdc, LOGPIXELSX);
++      ReleaseDC(NULL, hdc);
++      device_scale_factor = (DEVICE_SCALE_FACTOR) GETPERCENT(iDpi);
++  }
+   RTC_DCHECK(device_scale_factor != DEVICE_SCALE_FACTOR_INVALID);
+   return static_cast<float>(device_scale_factor) / 100.0f;
+ }
+diff --git a/third_party/webrtc/modules/desktop_capture/win/full_screen_win_application_handler.cc b/modules/desktop_capture/win/full_screen_win_application_handler.cc
+index 962a646..501f0a0 100644
+--- a/third_party/webrtc/modules/desktop_capture/win/full_screen_win_application_handler.cc
++++ b/third_party/webrtc/modules/desktop_capture/win/full_screen_win_application_handler.cc
+@@ -418,9 +418,11 @@ std::wstring GetPathByWindowId(HWND window_id) {
+   WCHAR path[MAX_PATH];
+   std::wstring result;
+   if (::GetModuleFileNameEx(process, 0, path, path_len)) {
+-    result = std::wstring(path, path_len);
++    // GetModuleFileNameEx returns a NUL-terminated string; construct directly
++    // from the buffer so no trailing padding is included.
++    result = std::wstring(path);
+   } else {
+-    RTC_LOG_GLE(LS_ERROR) << "QueryFullProcessImageName failed.";
++    RTC_LOG_GLE(LS_ERROR) << "GetModuleFileNameEx failed.";
+   }
+ 
+   ::CloseHandle(process);

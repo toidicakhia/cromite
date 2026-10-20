@@ -8,7 +8,6 @@ Format: entry | upstream commit | reason. Generated 2026-10-20.
 - ac2e6192636293e1c08f757f2780f950450e2861 — Remove Windows XP support code in LocaleWin.cpp.    2016/1 — LocaleWin XP-only code
 - aa3cff336c91fbe2cd8cc6254736564d95c5b230 — Cleanup: LFH only needs to be enabled on XP/2003    2016/3 — LFH enabled on XP/2003 only
 - 18ad5f3a40ceab583961ca5dc064e01900514c57 — zlib: Remove Windows XP workaround for CPU feature detecti — zlib XP CPU detection workaround
-- cc84b6cdb2ba06927c498632c86cb0c81e50e9ec — Remove user32 delay imports for XP, more GN imports match  — user32 delay imports for XP
 - dac0996215e1c21aeef4360138eb159923ba755a — Remove XP compatibility ETW thunks    2017/7/25 6:21:03    — XP ETW thunks
 - 182f32f9b5dcca678b5a6f35b3f17fc71e248f35 — Add IPv6 link local scope ID to IPEndPoint    2024/11/26 8 — dynamic if_indextoname (XP lacks it; Win7 ok) — also fixed linux host build
 - 5f3f66c683b699ed3da8167b39199eed69fb8c5a — threads: Use pthread_once and InitOnceExecuteOnce    2024/ — libxml InitOnceExecuteOnce rolled back to XP x86 atomics — also linux host build
@@ -31,9 +30,8 @@ Format: entry | upstream commit | reason. Generated 2026-10-20.
 - 4b298260f5327c09983083055a5775d5ce719cc1 — win: Re-enable libc++ on Windows.    2019/5/7 1:12:08    4 — libc++ thread_win32 -> ReactOS push locks (XP); SRWLOCK/INIT_ONCE fine on Win7
 - 6b31cf1995f78f26e0f2fe136343ed09bd35f09b — Only initialize mutexes during DllMain    2024/9/24 6:11:5 — vulkan-loader mutex init -> XP (INIT_ONCE fine on Win7)
 - 9a33184db45f00f4b929a2696229015258e66f3c — Windows: Improve pthread wrapper    2019/2/8 21:56:53    9 — dav1d win32 thread wrapper -> XP (InitOnce/condvar fine)
-- 3f69e73c
-- 84ee78c37199f563d107776508f5ff2aa1ff205e — Use GetFinalPathNameByHandleW to normalize file paths on Windows — older XP path normalizatione7639b7d4a81d3b818586d3bacf964a4 — Scheduler: Replace use of std::thread with marl::Thread    — marl thread.cpp -> std::thread rollback (no Win8+ APIs on upstream side)
-&—  — GetFinalPathNameByHandleW -> older XP path normalization
+- 3f69e73ce7639b7d4a81d3b818586d3bacf964a4 — Scheduler: Replace use of std::thread with marl::Thread — marl thread.cpp -> std::thread rollback (no Win8+ APIs on upstream side)
+- 84ee78c37199f563d107776508f5ff2aa1ff205e — Use GetFinalPathNameByHandleW to normalize file paths on Windows — older XP path normalization
 - 1a5a84945886f72b31882b8abdd497992985595f — Call RegDeleteKeyEx directly instead of via a wrapper.     — RegDeleteKeyEx wrapped for XP
 - 24a053badf908d50c49935b34908fdac68bcfda1 — Use the IFileDialog to implement SelectFileDialog on Windo — IFileDialog -> old XP file dialog
 - 663525e0097433201ab3a9d374cf0398042cfb0f — Remove dynamic import of preferred UI API from kernel32.   — dynamic preferred-UI API (XP)
@@ -56,3 +54,13 @@ Kept deliberately (win7-relevant, do NOT skip): c0a055bf (legacy swiftshader GLE
 
 | rust01 | rust-src component only (`third_party/rust-toolchain/lib/rustlib/src/rust/...`); the win64 build links the **prebuilt** rust std rlibs (`rust-toolchain/lib/rustlib/x86_64-pc-windows-msvc/lib/`), so these source edits never enter chrome.exe |
 | rust02 | same as rust01 (rust-src component, not compiled into the build) |
+
+Un-skipped 2026-10-20 (runtime crash fix, do NOT re-add to the skip list):
+- `cc84b6cdb2ba06927c498632c86cb0c81e50e9ec` — "Remove user32 delay imports for XP, more GN imports
+  match" — despite the XP-sounding title, the tracked delta removes `/DELAYLOAD:psapi.dll` from
+  `build/config/win/BUILD.gn` (and adds base's 5 delayloads to `base_win_linker_flags`). Required on
+  Win7/8.1: chrome_elf's third-party-DLL hook (`third_party_dlls/hook.cc` `GetSectionName`) calls
+  `GetMappedFileNameW` (PSAPI) while intercepting `NtMapViewOfSection`; with psapi delay-loaded this
+  triggers a nested `LoadLibrary("PSAPI.DLL")` inside the mapping, and the Win8.1 loader fails it with
+  `STATUS_INVALID_PARAMETER` → delay-load failure (`0xC06D007E`) in the browser process. With the entry
+  applied psapi is a static import loaded at process start. See `docs/WIN7_SUPPORT_PLAN.md` §10.

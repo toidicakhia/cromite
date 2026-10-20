@@ -208,6 +208,9 @@ Yêu cầu: "Tối ưu patches của windows 7" — 3 hướng: (1) lọc code X
   `InitializeTsfForInputScopes`/`SetInputScopeForTsfUnawareWindow` cho `cc3c872a`), `1812d0d7` (Remove wow_helper
   revert — cấp `include_dirs` partition_alloc cho `win_hook_util`), `a8bf44a3` (SHFileOperation revert — cấp
   `ProbeOpenCommandHandlers`), `ab240ec5` (cấp định nghĩa `ProbeOpenCommandHandlers` + string grd).
+- **`cc84b6cd` skip nhầm — bỏ skip 2026-10-20** sau chẩn đoán crash runtime: delta của entry bỏ
+  `/DELAYLOAD:psapi.dll` (và thêm 5 delayloads vào `base_win_linker_flags` trong `base/BUILD.gn`), đúng fix
+  cho lỗi delay-load lồng nhau của hook chrome_elf trên Win8.1 — chi tiết ở §10.
 - KEEP (đã verify cần cho win7): skia legacy `makeTypeface`, swiftshader GLES legacy (306 file), condvar
   fallback Win7 `f11a6c02`, WAVE audio, DWM, subsystem version 6.x, installer min-OS, sandbox thunk theo OS.
 
@@ -225,7 +228,8 @@ Yêu cầu: "Tối ưu patches của windows 7" — 3 hướng: (1) lọc code X
   `dav1d` — `libdav1d` viết lại về pristine (`git -C third_party/dav1d/libdav1d checkout`), chỉ giữ entry kept
   "Add automatic thread count selection" (`cpu.c`); gỡ `cond_locked` mismatch gây undefined symbol khi link.
 - Bỏ hẳn cơ chế `overrides/*/fixups/` (4 fixup cũ đã obsolete: file_util do `bb4fe7af` skip; v8 → override;
-  wow64 case do `f9b843b9` skip; ip_endpoint/libxml/quiche do entry skip).
+  wow64 case do `f9b843b9` skip; ip_endpoint/libxml/quiche do entry skip). **Sau đó (audit runtime) cơ chế
+  fixups được đưa lại** với 3 patch `overrides/deps/fixups/{10,11,12}` — xem §10 và `fixups/README.md`.
 
 ### 9.3 Script 04b
 
@@ -241,3 +245,64 @@ Yêu cầu: "Tối ưu patches của windows 7" — 3 hướng: (1) lọc code X
   `chrome-win7.zip` 205,026,019 B (−204,046 B so với bản trước).
 - Rà soát tính năng bị tắt: `v8_enable_etw_stack_walking=false` giữ (ETW stack-walk là tính năng Win10),
   bỏ `-msse3` giữ (chủ ý tác giả), `treat_warnings_as_errors=false` giữ (chỉ ảnh hưởng build).
+
+## 10. Runtime test Win8.1 — crash `0xC06D007E` do delay-load PSAPI (2026-10-20)
+
+### Triệu chứng
+
+- User chạy `artifacts/chrome-win7.zip` trên **Windows 8.1 x64** (portable `E:\chrome-win\`): chrome mở được
+  nhưng mở tab bất kỳ → **"Aw, Snap!"**; Event Viewer 1000 `Exception code 0xC06D007E` (faulting module
+  `KERNELBASE.dll`). Các bản thử (gate KsecDD, `chrome-allfix`) đều crash như nhau.
+
+### Chẩn đoán
+
+Build chẩn đoán (đã revert sau khi xong, lưu tại `/tmp/opencode/w7fix/diag-hook.patch`): thêm
+`__pfnDliFailureHook2` vào `chrome/chrome_elf/chrome_elf_main.cc` (ghi `elf-delayload.log` vào
+module dir/`%TEMP%`/`C:\Windows\Temp`/`%USERPROFILE%`, raise exception mã hoá
+`0xE0CC0000 | (dll_index<<8) | name_hash`) + log trong `chrome/app/delay_load_failure_hook_win.cc`.
+Android/…-style hash-table decode trong `/tmp/opencode/w7fix/elf-hash-map.txt`.
+
+Log user gửi (process browser, cmdline `"E:\chrome-win\chrome.exe"`, khớp Event 1000 PID 0x1808):
+
+```
+6152|PSAPI.DLL|GetMappedFileNameW|reason=3|last_error=0x00000057|code=0xe0cc0407|"E:\chrome-win\chrome.exe"
+```
+
+- `reason=3` = `dliFailLoadLib`; `0x57` = `ERROR_INVALID_PARAMETER`; `code 0xe0cc0407`: dll_index 4 =
+  `PSAPI.DLL`, hash 7 = `GetMappedFileNameW`.
+
+### Nguyên nhân gốc
+
+1. Hook blocklist DLL bên thứ ba của chrome_elf (`chrome/chrome_elf/third_party_dlls/hook.cc:96`
+   `GetSectionName`) gọi `::GetMappedFileName` (delay-import `PSAPI.DLL`) trong khi đang duyệt
+   `NtMapViewOfSection`. Hook chỉ chạy ở **browser process** (`DllMain` → `third_party_dlls::Init()`).
+2. `psapi.dll` chưa được nạp (delay-load) → lệnh gọi kích hoạt `LoadLibrary("PSAPI.DLL")` **lồng ngay trong
+   lúc psapi.dll đang được map**; loader Windows 8.1 trả `STATUS_INVALID_PARAMETER` → delay-load thất bại →
+   process browser chết (`0xC06D007E` = mã delay-load failure của MSVC).
+3. Upstream không gặp vì entry `cc84b6cd` (bỏ delay-import `psapi.dll`, chuyển sang import tĩnh) luôn được áp;
+   trong pipeline ta entry này **bị skip nhầm** (§9.1) do title nghe như cleanup XP.
+
+### Fix
+
+- Bỏ skip `cc84b6cdb2ba06927c498632c86cb0c81e50e9ec` (`overrides/skip/`), `git apply --check` sạch → áp:
+  `build/config/win/BUILD.gn` bỏ `/DELAYLOAD:psapi.dll` khỏi `delayloads_except_dbghelp`; `base/BUILD.gn` thêm
+  `dbghelp/dwmapi/shell32/uxtheme/propsys` vào `config("base_win_linker_flags")` (config này
+  `all_dependent_configs` của target `base`, tương đương hunk `component("base")` gốc của commit upstream).
+- Rebuild `chrome` + `chrome_elf` + các exe phụ; verify `llvm-readobj --coff-imports`: `PSAPI.DLL` chuyển từ
+  `DelayImport` → `Import` (tĩnh, load từ đầu process) ở `chrome.dll`/`chrome.exe`/`chrome_elf.dll`; exports
+  `chrome_elf` giữ nguyên 27.
+- Regenerate `overrides/deps/fixups/10-win7-runtime-fixes.patch` (26 file; kèm fix
+  `LiveTicksNowIgnoringOverride` + `(void)TimeTicks::IsHighResolution()`), reverse-check OK; sync toàn bộ
+  `overrides/` sang `~/cromite-build/cromite`.
+
+### Artifacts cuối (đã bỏ code chẩn đoán)
+
+| File | md5 |
+|---|---|
+| `chrome.dll` | `1a902484ffbab81ada6aaa967334ad7e` |
+| `chrome.exe` | `290e8c2e83d930e5ff8cf75b898dd9ab` |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` |
+
+- `artifacts/chrome-win7.zip` đóng gói lại (205 MB). Bộ test kèm chẩn đoán giao user ở
+  `artifacts/test2/` (`chrome-ksec-psapi.dll`, `chrome_elf-diag2.dll`, `chrome-diag2.exe`).
+- **Trạng thái: chờ user xác nhận hết "Aw, Snap"**; nếu còn lỗi delay-load khác, log diag sẽ chỉ tiếp.

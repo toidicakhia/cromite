@@ -1,0 +1,627 @@
+diff --git a/base/process/launch_win.cc b/base/process/launch_win.cc
+index 3c9bb88391..560af531b4 100644
+--- a/base/process/launch_win.cc
++++ b/base/process/launch_win.cc
+@@ -304,9 +304,7 @@ Process LaunchProcess(const CommandLine::StringType& cmdline,
+     if (!startup_info_wrapper.InitializeProcThreadAttributeList(
+             attribute_count)) {
+       DPLOG(ERROR);
+-#if 0
+       return Process();
+-#endif
+     }
+     flags |= EXTENDED_STARTUPINFO_PRESENT;
+   }
+diff --git a/base/time/time_win.cc b/base/time/time_win.cc
+index 4f65904eb0..c93b68c8bd 100644
+--- a/base/time/time_win.cc
++++ b/base/time/time_win.cc
+@@ -765,6 +765,14 @@ namespace subtle {
+ LiveTicks LiveTicksNowIgnoringOverride() {
+   // Ensure that the assignment to |g_qpc_ticks_per_second|, made in
+   // InitializeNowFunctionPointer(), has happened by this point.
++  if (g_qpc_ticks_per_second == 0) {
++    (void)TimeTicks::IsHighResolution();
++    if (g_qpc_ticks_per_second == 0) {
++      // QPC is not usable on this system. Fall back to the system tick count,
++      // which also avoids dividing by zero below.
++      return LiveTicks() + Milliseconds(::GetTickCount64());
++    }
++  }
+   LARGE_INTEGER perf_counter_now = {};
+   // According to the MSDN documentation for QueryPerformanceCounter(), this
+   // will never fail on systems that run XP or later.
+diff --git a/base/win/elevation_util.cc b/base/win/elevation_util.cc
+index d58870d767..27fb2f1962 100644
+--- a/base/win/elevation_util.cc
++++ b/base/win/elevation_util.cc
+@@ -122,15 +122,19 @@ expected<Process, DWORD> RunDeElevated(
+   PROCESS_INFORMATION pi = {};
+   typedef BOOL (WINAPI *FNCreateProcessWithTokenW)(HANDLE hToken, DWORD dwLogonFlags, LPCWSTR lpApplicationName, LPWSTR lpCommandLine, DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory, LPSTARTUPINFOW lpStartupInfo, LPPROCESS_INFORMATION lpProcessInfo);
+   FNCreateProcessWithTokenW pfnCreateProcessWithTokenW = (FNCreateProcessWithTokenW) GetProcAddress (GetModuleHandle (L"advapi32.dll"), "CreateProcessWithTokenW");
+-  if (!pfnCreateProcessWithTokenW)
++  if (pfnCreateProcessWithTokenW) {
++    if (!pfnCreateProcessWithTokenW(duplicated_shell_token->get(), 0,
++                                    command_line.GetProgram().value().c_str(),
++                                    command_line.GetCommandLineString().data(), 0,
++                                    nullptr, nullptr, startupinfo.startup_info(),
++                                    &pi)) {
++      return unexpected(::GetLastError());
++    }
++  } else {
++    // CreateProcessWithTokenW is not available on this version of Windows;
++    // fall back to CreateProcessAsUserW.
+     if (!CreateProcessAsUserW(duplicated_shell_token->get(), command_line.GetProgram().value().c_str(), command_line.GetCommandLineString().data(), 0, 0, TRUE, 0, 0, 0, startupinfo.startup_info(), &pi))
+-    return Process();
+-  if (pfnCreateProcessWithTokenW && !pfnCreateProcessWithTokenW(duplicated_shell_token->get(), 0,
+-                                 command_line.GetProgram().value().c_str(),
+-                                 command_line.GetCommandLineString().data(), 0,
+-                                 nullptr, nullptr, startupinfo.startup_info(),
+-                                 &pi)) {
+-    return unexpected(::GetLastError());
++      return unexpected(::GetLastError());
+   }
+   ScopedProcessInformation process_info(pi);
+   Process process(process_info.TakeProcessHandle());
+diff --git a/base/win/hstring_compare.cc b/base/win/hstring_compare.cc
+index 8cecac97c4..0ef9a59a81 100644
+--- a/base/win/hstring_compare.cc
++++ b/base/win/hstring_compare.cc
+@@ -30,8 +30,12 @@ HRESULT HStringCompare(HSTRING string1, HSTRING string2, INT32* result) {
+                                             "WindowsCompareStringOrdinal"));
+   }();
+ 
+-  if (!compare_string_func)
++  if (!compare_string_func) {
++    // WindowsCompareStringOrdinal is not available (e.g. on Windows 7). Make
++    // sure callers never observe an uninitialized result.
++    *result = 0;
+     return E_FAIL;
++  }
+ 
+   return compare_string_func(string1, string2, result);
+ }
+diff --git a/base/win/winrt_foundation_helpers.h b/base/win/winrt_foundation_helpers.h
+index d8ad556952..009767d3d8 100644
+--- a/base/win/winrt_foundation_helpers.h
++++ b/base/win/winrt_foundation_helpers.h
+@@ -113,7 +113,7 @@ inline bool IsEqual(const HSTRING& lhs, const HSTRING& rhs) {
+   INT32 result;
+   HRESULT hr = HStringCompare(lhs, rhs, &result);
+   DCHECK(SUCCEEDED(hr));
+-  return result == 0;
++  return SUCCEEDED(hr) && result == 0;
+ }
+ 
+ template <typename T>
+@@ -131,7 +131,7 @@ struct Less {
+     INT32 result;
+     HRESULT hr = HStringCompare(lhs, rhs, &result);
+     DCHECK(SUCCEEDED(hr));
+-    return result < 0;
++    return SUCCEEDED(hr) && result < 0;
+   }
+ 
+   template <typename T>
+diff --git a/chrome/browser/chrome_browser_main_win.cc b/chrome/browser/chrome_browser_main_win.cc
+index 2c360f72b7..700d6cd3e6 100644
+--- a/chrome/browser/chrome_browser_main_win.cc
++++ b/chrome/browser/chrome_browser_main_win.cc
+@@ -457,8 +457,8 @@ void ReportParentProcessName() {
+   base::ProcessId ppid =
+       base::GetParentProcessId(base::GetCurrentProcessHandle());
+ 
+-  base::Process process(
+-      base::Process::OpenWithAccess(ppid, PROCESS_QUERY_LIMITED_INFORMATION));
++  base::Process process(base::Process::OpenWithAccess(
++      ppid, PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ));
+ 
+   if (process.IsValid()) {
+     auto result = GetProcessExecutablePath(process);
+diff --git a/chrome/browser/media/webrtc/desktop_capture_devices_util_win.cc b/chrome/browser/media/webrtc/desktop_capture_devices_util_win.cc
+index b561133048..4030dbfa97 100644
+--- a/chrome/browser/media/webrtc/desktop_capture_devices_util_win.cc
++++ b/chrome/browser/media/webrtc/desktop_capture_devices_util_win.cc
+@@ -136,8 +136,9 @@ base::ProcessId GetGenericAppRootProcessId(
+     return main_process_id_candidate;
+   }
+ 
+-  base::win::ScopedHandle parent_process_handle(OpenProcess(
+-      PROCESS_QUERY_LIMITED_INFORMATION, /*bInheritHandle=*/FALSE, parent_id));
++  base::win::ScopedHandle parent_process_handle(
++      OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
++                  /*bInheritHandle=*/FALSE, parent_id));
+   while (parent_process_handle.is_valid()) {
+     base::FilePath parent_path =
+         GetProcessExecutablePath(parent_process_handle.get());
+@@ -154,8 +155,9 @@ base::ProcessId GetGenericAppRootProcessId(
+ 
+     main_process_id_candidate = parent_id;
+     parent_id = base::GetParentProcessId(parent_process_handle.get());
+-    parent_process_handle.Set(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,
+-                                          /*bInheritHandle=*/FALSE, parent_id));
++    parent_process_handle.Set(
++        OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
++                    /*bInheritHandle=*/FALSE, parent_id));
+   }
+ 
+   return main_process_id_candidate;
+@@ -174,7 +176,7 @@ base::ProcessId GetAppMainProcessId(intptr_t window_id) {
+   }
+ 
+   base::win::ScopedHandle process_handle(
+-      OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,
++      OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
+                   /*bInheritHandle=*/FALSE, process_id));
+   if (!process_handle.is_valid()) {
+     RecordGetAppMainProcessIdResult(
+diff --git a/chrome/installer/setup/uninstall.cc b/chrome/installer/setup/uninstall.cc
+index 1317fbc23d..054bd13762 100644
+--- a/chrome/installer/setup/uninstall.cc
++++ b/chrome/installer/setup/uninstall.cc
+@@ -160,8 +160,9 @@ class ProcessPathPrefixFilter : public base::ProcessFilter {
+   // base::ProcessFilter:
+   bool Includes(const base::ProcessEntry& entry) const override {
+     // Test if |entry|'s file path starts with the prefix we're looking for.
+-    base::Process process(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,
+-                                        FALSE, entry.th32ProcessID));
++    base::Process process(
++        ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ,
++                      FALSE, entry.th32ProcessID));
+     if (!process.IsValid())
+       return false;
+ 
+diff --git a/chrome/updater/net/network_fetcher_win.cc b/chrome/updater/net/network_fetcher_win.cc
+index d7a7f41a4d..bf6907ba37 100644
+--- a/chrome/updater/net/network_fetcher_win.cc
++++ b/chrome/updater/net/network_fetcher_win.cc
+@@ -152,9 +152,9 @@ scoped_refptr<winhttp::ProxyConfiguration> GetProxyConfiguration(
+   ScopedImpersonation impersonate_user;
+   if (IsLocalSystemUser()) {
+     VLOG(2) << "Running as SYSTEM, impersonate the current user.";
+-    base::win::ScopedHandle user_token = GetUserTokenFromCurrentSessionId();
+-    if (user_token.IsValid()) {
+-      impersonate_user.Impersonate(user_token.Get());
++    std::optional<base::win::AccessToken> user_token = GetLoggedOnUserToken();
++    if (user_token.has_value()) {
++      impersonate_user.Impersonate(user_token->get());
+     }
+   }
+ 
+diff --git a/components/device_signals/core/common/win/platform_utils_win.cc b/components/device_signals/core/common/win/platform_utils_win.cc
+index a13c91b582..9fc6ebe44a 100644
+--- a/components/device_signals/core/common/win/platform_utils_win.cc
++++ b/components/device_signals/core/common/win/platform_utils_win.cc
+@@ -209,8 +209,8 @@ bool ResolvePath(const base::FilePath& file_path,
+ }
+ 
+ std::optional<base::FilePath> GetProcessExePath(base::ProcessId pid) {
+-  base::Process process(
+-      ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
++  base::Process process(::OpenProcess(
++      PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid));
+   if (!process.IsValid()) {
+     return std::nullopt;
+   }
+diff --git a/components/os_crypt/async/common/encryptor.cc b/components/os_crypt/async/common/encryptor.cc
+index 38c7f31924..01cedec51f 100644
+--- a/components/os_crypt/async/common/encryptor.cc
++++ b/components/os_crypt/async/common/encryptor.cc
+@@ -59,7 +59,8 @@ Encryptor::Key::Key(base::span<const uint8_t> key,
+     pCryptProtectMemory = reinterpret_cast< PFNCRYPTPROTECTMEMORY >( GetProcAddress( GetModuleHandleW( L"crypt32.dll" ), "CryptProtectMemory" ) );
+     if ( pCryptProtectMemory == NULL )
+     {
+-    encrypted_ =TRUE;
++    // The key is left in plaintext, so it must not be marked as encrypted.
++    encrypted_ = false;
+     } // if
+ 
+     else
+diff --git a/components/os_crypt/async/common/encryptor_mojom_traits.cc b/components/os_crypt/async/common/encryptor_mojom_traits.cc
+index b12fd0a649..18af1f744c 100644
+--- a/components/os_crypt/async/common/encryptor_mojom_traits.cc
++++ b/components/os_crypt/async/common/encryptor_mojom_traits.cc
+@@ -107,7 +107,8 @@ bool StructTraits<os_crypt_async::mojom::KeyDataView,
+     pCryptProtectMemory = reinterpret_cast< PFNCRYPTPROTECTMEMORY >( GetProcAddress( GetModuleHandleW( L"crypt32.dll" ), "CryptProtectMemory" ) );
+     if ( pCryptProtectMemory == NULL )
+     {
+-    out->encrypted_ =TRUE;
++    // The key is left in plaintext, so it must not be marked as encrypted.
++    out->encrypted_ = false;
+     } // if
+ 
+     else
+diff --git a/content/browser/gpu/gpu_data_manager_impl_private.cc b/content/browser/gpu/gpu_data_manager_impl_private.cc
+index ce2781988f..a1529b6698 100644
+--- a/content/browser/gpu/gpu_data_manager_impl_private.cc
++++ b/content/browser/gpu/gpu_data_manager_impl_private.cc
+@@ -468,7 +468,7 @@ GpuDataManagerImplPrivate::GpuDataManagerImplPrivate(GpuDataManagerImpl* owner)
+       observer_list_(base::MakeRefCounted<GpuDataManagerObserverList>()) {
+   DCHECK(owner_);
+   InitializeGpuModes();
+-#if 0
++#if BUILDFLAG(IS_WIN)
+   EnableIntelShaderCache();
+ #endif  // BUILDFLAG(IS_WIN)
+   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+@@ -1282,8 +1282,9 @@ void GpuDataManagerImplPrivate::AppendGpuCommandLine(
+       break;
+     case gpu::GpuMode::SOFTWARE_GL: {
+       // This setting makes WebGL run on legacy SwiftShader GL when true and
+-      // SwANGLE when false.
+-      bool legacy_software_gl = true;
++      // SwANGLE when false. Legacy SwiftShader GL is not built or packaged on
++      // Windows, so use SwANGLE (vk_swiftshader.dll).
++      bool legacy_software_gl = false;
+       gl::SetSoftwareWebGLCommandLineSwitches(command_line, legacy_software_gl);
+     } break;
+     default:
+diff --git a/content/browser/renderer_host/dwrite_font_proxy_impl_win.cc b/content/browser/renderer_host/dwrite_font_proxy_impl_win.cc
+index 671ee2e725..467deef0ed 100644
+--- a/content/browser/renderer_host/dwrite_font_proxy_impl_win.cc
++++ b/content/browser/renderer_host/dwrite_font_proxy_impl_win.cc
+@@ -431,6 +431,12 @@ void DWriteFontProxyImpl::MatchUniqueFont(
+ 
+   // We must not get here if this version of DWrite can't handle performing the
+   // search.
++  if (!factory3_) {
++    // IDWriteFactory3 is unavailable (e.g. on Windows 7/8); unique font
++    // matching is done through the lookup table instead.
++    return;
++  }
++  CHECK(collection_, base::NotFatalUntil::M152);
+   mswr::ComPtr<IDWriteFontSet> system_font_set;
+   HRESULT hr = factory3_->GetSystemFontSet(&system_font_set);
+   if (FAILED(hr))
+diff --git a/device/bluetooth/bluetooth_adapter_factory.cc b/device/bluetooth/bluetooth_adapter_factory.cc
+index b617352261..b82c924590 100644
+--- a/device/bluetooth/bluetooth_adapter_factory.cc
++++ b/device/bluetooth/bluetooth_adapter_factory.cc
+@@ -42,10 +42,17 @@ BluetoothAdapterFactory* BluetoothAdapterFactory::Get() {
+ 
+ static const bool kBluetoothSupportedByPlatform =
+ #if !defined(NO_PLATFORM_BLUETOOTH)
++#if BUILDFLAG(IS_WIN)
+   // Windows 8 supports Low Energy GATT operations but it does not support
+   // scanning, initiating connections and GATT Server. To keep the API
+-  // consistent we consider Windows 8 as lacking Low Energy support.
+-  base::win::GetVersion() >= base::win::Version::WIN10;
++  // consistent we consider Windows 8 as lacking Low Energy support. Classic
++  // Bluetooth is supported on Windows 7 and later; GetClassicAdapter()
++  // handles the pre-Win10 case.
++  base::win::GetVersion() >= base::win::Version::WIN7;
++#else
++    BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
++    BUILDFLAG(IS_APPLE);
++#endif
+ #else
+     false;
+ #endif
+diff --git a/gpu/config/gpu_util.cc b/gpu/config/gpu_util.cc
+index 8310e0af3a..f464bf21f8 100644
+--- a/gpu/config/gpu_util.cc
++++ b/gpu/config/gpu_util.cc
+@@ -977,8 +977,9 @@ bool EnableSwiftShaderIfNeeded(base::CommandLine* command_line,
+       gpu_feature_info.status_values[GPU_FEATURE_TYPE_ACCELERATED_GL] !=
+           kGpuFeatureStatusEnabled) {
+     // This setting makes WebGL run on legacy SwiftShader GL when true and
+-    // SwANGLE when false.
+-    bool legacy_software_gl = true;
++    // SwANGLE when false. Legacy SwiftShader GL is not built or packaged on
++    // Windows, so use SwANGLE (vk_swiftshader.dll).
++    bool legacy_software_gl = false;
+     gl::SetSoftwareWebGLCommandLineSwitches(command_line, legacy_software_gl);
+     return true;
+   }
+diff --git a/media/audio/win/wavein_input_win.cc b/media/audio/win/wavein_input_win.cc
+index d2e8963571..cf7c1b1197 100644
+--- a/media/audio/win/wavein_input_win.cc
++++ b/media/audio/win/wavein_input_win.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "media/audio/win/wavein_input_win.h"
+ 
++#include <algorithm>
++
+ #include "base/logging.h"
+ #include "base/notimplemented.h"
+ #include "media/audio/audio_device_description.h"
+@@ -134,6 +136,9 @@ void PCMWaveInAudioInputStream::Start(AudioInputCallback* callback) {
+ 
+   MMRESULT result = ::waveInStart(wavein_);
+   if (result != MMSYSERR_NOERROR) {
++    // The buffers have already been queued above, return them to the
++    // application before bailing out so the driver no longer owns them.
++    ::waveInReset(wavein_);
+     HandleError(result, Error::kStartupFailed);
+     state_ = kStateReady;
+     callback_ = NULL;
+@@ -184,12 +189,14 @@ void PCMWaveInAudioInputStream::Close() {
+   Stop();
+ 
+   if (wavein_) {
+-    FreeBuffers();
+-
+     // waveInClose() generates a WIM_CLOSE callback.  In case Start() was never
+     // called, force a reset to ensure close succeeds.
+     MMRESULT res = ::waveInReset(wavein_);
+     DCHECK_EQ(res, static_cast<MMRESULT>(MMSYSERR_NOERROR));
++
++    // The buffers must only be released once the driver no longer owns them.
++    FreeBuffers();
++
+     res = ::waveInClose(wavein_);
+     DCHECK_EQ(res, static_cast<MMRESULT>(MMSYSERR_NOERROR));
+     state_ = kStateClosed;
+@@ -301,19 +308,39 @@ void PCMWaveInAudioInputStream::WaveCallback(HWAVEIN hwi, UINT msg,
+       // there is currently no support for controlling the microphone volume
+       // level.
+       WAVEHDR* buffer = reinterpret_cast<WAVEHDR*>(param1);
+-      const size_t frame_size = obj->audio_bus_->frames() * obj->audio_bus_->channels();
+-      switch (obj->format_.wBitsPerSample / 8) {
++      const size_t bytes_per_sample = obj->format_.wBitsPerSample / 8;
++      // Only `dwBytesRecorded` bytes contain valid data. Clamp the sample count
++      // to the recorded data and to the capacity of the AudioBus so that we
++      // never read stale or out-of-bounds memory; missing frames get zeroed.
++      size_t recorded_samples = 0;
++      if (bytes_per_sample)
++        recorded_samples = buffer->dwBytesRecorded / bytes_per_sample;
++      // The device format is clamped to at most two channels, so the interleaved
++      // layout only matches when the AudioBus has the same channel count.
++      if (obj->format_.nChannels != obj->audio_bus_->channels())
++        recorded_samples = 0;
++      recorded_samples = std::min(
++          recorded_samples,
++          static_cast<size_t>(obj->audio_bus_->frames()) *
++              obj->audio_bus_->channels());
++      switch (bytes_per_sample) {
+         case 1:
+           obj->audio_bus_->FromInterleaved<UnsignedInt8SampleTypeTraits>(
+-              base::span(reinterpret_cast<const uint8_t*>(buffer->lpData), frame_size));
++              base::span(reinterpret_cast<const uint8_t*>(buffer->lpData),
++                         recorded_samples),
++              true);
+           break;
+         case 2:
+           obj->audio_bus_->FromInterleaved<SignedInt16SampleTypeTraits>(
+-              base::span(reinterpret_cast<const int16_t*>(buffer->lpData), frame_size));
++              base::span(reinterpret_cast<const int16_t*>(buffer->lpData),
++                         recorded_samples),
++              true);
+           break;
+         case 4:
+           obj->audio_bus_->FromInterleaved<SignedInt32SampleTypeTraits>(
+-              base::span(reinterpret_cast<const int32_t*>(buffer->lpData), frame_size));
++              base::span(reinterpret_cast<const int32_t*>(buffer->lpData),
++                         recorded_samples),
++              true);
+           break;
+         default:
+           NOTREACHED() << "Unsupported bytes per sample encountered: "
+diff --git a/net/ssl/ssl_platform_key_win.cc b/net/ssl/ssl_platform_key_win.cc
+index 4aed898bb1..15c35ff50d 100644
+--- a/net/ssl/ssl_platform_key_win.cc
++++ b/net/ssl/ssl_platform_key_win.cc
+@@ -51,7 +51,10 @@ using NCryptGetPropertyFunc = SECURITY_STATUS(WINAPI*)(NCRYPT_HANDLE,  // hObjec
+ 
+ class CNGFunctions {
+  public:
+-  CNGFunctions() : ncrypt_free_object_(nullptr), ncrypt_sign_hash_(nullptr) {
++  CNGFunctions()
++      : ncrypt_free_object_(nullptr),
++        ncrypt_sign_hash_(nullptr),
++        ncrypt_get_property_(nullptr) {
+     HMODULE ncrypt = GetModuleHandle(L"ncrypt.dll");
+     if (ncrypt != nullptr) {
+       ncrypt_free_object_ = reinterpret_cast<NCryptFreeObjectFunc>(
+diff --git a/remoting/host/win/launch_process_with_token.cc b/remoting/host/win/launch_process_with_token.cc
+index f51ea957c7..dcf220b0c1 100644
+--- a/remoting/host/win/launch_process_with_token.cc
++++ b/remoting/host/win/launch_process_with_token.cc
+@@ -156,9 +156,7 @@ bool LaunchProcessWithToken(
+     if (!startup_info_wrapper.InitializeProcThreadAttributeList(
+             attribute_count)) {
+       PLOG(ERROR) << "InitializeProcThreadAttributeList()";
+-#if 0
+       return false;
+-#endif
+     }
+ 
+     if (inherit_handles) {
+@@ -168,9 +166,7 @@ bool LaunchProcessWithToken(
+               static_cast<DWORD>(handles_to_inherit.size() * sizeof(HANDLE)))) {
+         PLOG(ERROR)
+             << "UpdateProcThreadAttribute(PROC_THREAD_ATTRIBUTE_HANDLE_LIST)";
+-#if 0
+         return false;
+-#endif
+       }
+     }
+ 
+@@ -180,9 +176,7 @@ bool LaunchProcessWithToken(
+               security_capabilities, sizeof(*security_capabilities))) {
+         PLOG(ERROR) << "UpdateProcThreadAttribute(PROC_THREAD_ATTRIBUTE_"
+                        "SECURITY_CAPABILITIES)";
+-#if 0
+         return false;
+-#endif
+       }
+     }
+ 
+diff --git a/sandbox/policy/win/sandbox_win.cc b/sandbox/policy/win/sandbox_win.cc
+index 9031443b99..dda7848980 100644
+--- a/sandbox/policy/win/sandbox_win.cc
++++ b/sandbox/policy/win/sandbox_win.cc
+@@ -598,7 +598,12 @@ ResultCode GenerateConfigForSandboxedProcess(const base::CommandLine& cmd_line,
+   if (sandbox_type == Sandbox::kRenderer) {
+     // TODO(crbug.com/40088338) Remove if we can reliably not load
+     // cryptbase.dll.
+-    config->AddKernelObjectToClose(HandleToClose::kKsecDD);
++    // Prior to Windows 10, cryptbase uses this handle for RtlGenRandom (there
++    // is no ProcessPrng), and BoringSSL aborts if entropy generation fails, so
++    // the handle opened by WarmupRandomnessInfrastructure() must be kept.
++    if (base::win::GetVersion() >= base::win::Version::WIN10) {
++      config->AddKernelObjectToClose(HandleToClose::kKsecDD);
++    }
+ #if !defined(NACL_WIN64)
+   if (IsWin32kLockdownEnabled())
+     if (const auto result = SandboxWin::AddWin32kLockdownPolicy(config);
+diff --git a/sandbox/win/src/broker_services.cc b/sandbox/win/src/broker_services.cc
+index a71389e870..340f670523 100644
+--- a/sandbox/win/src/broker_services.cc
++++ b/sandbox/win/src/broker_services.cc
+@@ -352,6 +352,13 @@ ResultCode CreateSandboxProcess(
+   DWORD flags =
+       CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT | DETACHED_PROCESS;
+ 
++  if (startup_info_helper->GetJobToAssign() &&
++      base::win::GetVersion() < base::win::Version::WIN8) {
++    // Windows 8 implements nested jobs, but for older systems we need to
++    // break out of any job we're in to enforce our restrictions.
++    flags |= CREATE_BREAKAWAY_FROM_JOB;
++  }
++
+   if (startup_info->has_extended_startup_info()) {
+     flags |= EXTENDED_STARTUPINFO_PRESENT;
+   }
+@@ -371,6 +378,18 @@ ResultCode CreateSandboxProcess(
+   }
+ 
+   process_info.Set(temp_process_info);
++
++  // Assign the suspended target to the job object on Windows versions that do
++  // not support PROC_THREAD_ATTRIBUTE_JOB_LIST. On Win10 this happens through
++  // the startup information.
++  if (startup_info_helper->GetJobToAssign() &&
++      !::AssignProcessToJobObject(startup_info_helper->GetJobToAssign(),
++                                  process_info.process_handle())) {
++    win_error = ::GetLastError();
++    ::TerminateProcess(process_info.process_handle(), 0);
++    return SBOX_ERROR_ASSIGN_PROCESS_TO_JOB_OBJECT;
++  }
++
+   // Change the token of the main thread of the new process for the
+   // impersonation token with more rights. This allows the target to start;
+   // otherwise it will crash too early for us to help.
+@@ -635,6 +654,10 @@ BrokerServicesBase::PreSpawnTarget(PolicyBase* policy_base) {
+   if (base::win::GetVersion() >= base::win::Version::WIN10 &&
+       policy_base->HasJob()) {
+     startup_info->AddJobToAssociate(policy_base->GetJobHandle());
++  } else if (policy_base->HasJob()) {
++    // Downlevel versions do not support PROC_THREAD_ATTRIBUTE_JOB_LIST, so
++    // the job has to be assigned to the process after creation.
++    startup_info->SetJobToAssign(policy_base->GetJobHandle());
+   }
+ 
+   if (!startup_info->BuildStartupInformation()) {
+diff --git a/sandbox/win/src/handle_closer_agent.cc b/sandbox/win/src/handle_closer_agent.cc
+index d6d71371c8..0405c43330 100644
+--- a/sandbox/win/src/handle_closer_agent.cc
++++ b/sandbox/win/src/handle_closer_agent.cc
+@@ -59,7 +59,6 @@ bool CsrssDisconnectWarmup() {
+           reinterpret_cast<PfnEnumSystemLocalesEx>
+               (GetProcAddress(handle_kern32, "EnumSystemLocalesEx"));
+ 
+-      enum_sys_locales_ex(EnumLocalesProcEx, LOCALE_WINDOWS, 0, 0);
+     if (enum_sys_locales_ex) {
+       return enum_sys_locales_ex(EnumLocalesProcEx, LOCALE_WINDOWS, 0, 0);
+     } else {
+@@ -207,8 +206,17 @@ bool HandleCloserAgent::CloseHandles() {
+   }
+ 
+   if (base::win::GetVersion() < base::win::Version::WIN8_1) {
+-    if (!GetCurrentProcessHandlesWin7())
++    // ProcessHandleTable is not available, enumerate the handle table
++    // manually and close the matching handles.
++    std::optional<ProcessHandleMap> handle_map = GetCurrentProcessHandlesWin7();
++    if (!handle_map.has_value()) {
+       return false;
++    }
++    for (auto& [type_name, handle_list] : handle_map.value()) {
++      for (HANDLE handle : handle_list) {
++        MaybeCloseHandle(type_name, handle);
++      }
++    }
+     return true;
+   }
+ 
+@@ -239,7 +247,7 @@ bool HandleCloserAgent::CloseHandles() {
+   return true;
+ }
+ 
+-bool HandleCloserAgent::MaybeCloseHandle(std::wstring& type_name,
++bool HandleCloserAgent::MaybeCloseHandle(const std::wstring& type_name,
+                                          HANDLE handle) {
+   bool bClose = false;
+   // Determine if the handle should be closed. Avoid matching the type unless
+diff --git a/sandbox/win/src/handle_closer_agent.h b/sandbox/win/src/handle_closer_agent.h
+index c33f8f4183..80a2577915 100644
+--- a/sandbox/win/src/handle_closer_agent.h
++++ b/sandbox/win/src/handle_closer_agent.h
+@@ -36,7 +36,7 @@ class HandleCloserAgent {
+   // Attempt to stuff a closed handle with a dummy Event. Only File and Event
+   // handles can be stuffed.
+   bool AttemptToStuffHandleSlot(HANDLE closed_handle);
+-  bool MaybeCloseHandle(std::wstring& type_name, HANDLE handle);
++  bool MaybeCloseHandle(const std::wstring& type_name, HANDLE handle);
+ 
+   HandleCloserConfig config_;
+   bool is_csrss_connected_;
+diff --git a/sandbox/win/src/startup_information_helper.h b/sandbox/win/src/startup_information_helper.h
+index 0d9e1fa87a..86c9499080 100644
+--- a/sandbox/win/src/startup_information_helper.h
++++ b/sandbox/win/src/startup_information_helper.h
+@@ -48,6 +48,14 @@ class StartupInformationHelper {
+   // Creates PROC_THREAD_ATTRIBUTE_JOB_LIST with |job_handle|.
+   void AddJobToAssociate(HANDLE job_handle);
+ 
++  // On Windows versions before 10 the job cannot be associated through the
++  // startup information, so it is stored here and assigned to the target
++  // process after creation.
++  void SetJobToAssign(HANDLE job_handle) { job_to_assign_ = job_handle; }
++
++  // Returns a job that must be assigned after process creation, or nullptr.
++  HANDLE GetJobToAssign() { return job_to_assign_; }
++
+   // Will one or more jobs be associated via the wrapped StartupInformation.
+   bool HasJobsToAssociate() { return !job_handle_list_.empty(); }
+   // Have handles been provided for secure inheritance?
+@@ -100,6 +108,7 @@ class StartupInformationHelper {
+   DWORD all_applications_package_policy_ = 0;
+   std::vector<HANDLE> inherited_handle_list_;
+   std::vector<HANDLE> job_handle_list_;
++  HANDLE job_to_assign_ = nullptr;
+   std::unique_ptr<SecurityCapabilities> security_capabilities_;
+ };
+ }  // namespace sandbox
+diff --git a/third_party/crashpad/crashpad/client/crashpad_client_win.cc b/third_party/crashpad/crashpad/client/crashpad_client_win.cc
+index 8b75d57e7c..3e8e8131f6 100644
+--- a/third_party/crashpad/crashpad/client/crashpad_client_win.cc
++++ b/third_party/crashpad/crashpad/client/crashpad_client_win.cc
+@@ -808,7 +808,7 @@ bool CrashpadClient::RegisterWerModule(const std::wstring& path) {
+     WerRegisterRuntimeExceptionModuleFnPtr pFnWerRegisterRuntimeExceptionModule;
+ 
+     pFnWerRegisterRuntimeExceptionModule = (WerRegisterRuntimeExceptionModuleFnPtr)
+-                                        GetProcAddress(hWerModule, "WerUnregisterRuntimeExceptionModule");
++                                        GetProcAddress(hWerModule, "WerRegisterRuntimeExceptionModule");
+ 
+     if (pFnWerRegisterRuntimeExceptionModule == NULL)
+     {
+diff --git a/ui/gl/gl_features.cc b/ui/gl/gl_features.cc
+index b183c2ff34..a4574a0675 100644
+--- a/ui/gl/gl_features.cc
++++ b/ui/gl/gl_features.cc
+@@ -385,6 +385,13 @@ bool IsSoftwareGLFallbackDueToCrashesAllowed(
+ BASE_FEATURE(kAllowANGLED3D9Fallback, base::FEATURE_DISABLED_BY_DEFAULT);
+ 
+ bool IsANGLED3D9FallbackAllowed() {
++#if BUILDFLAG(IS_WIN)
++  // Windows 7 (and 8) drivers frequently lack D3D11 support, so allow the
++  // D3D9 fallback there even though the feature is disabled by default on
++  // modern systems.
++  if (base::win::GetVersion() < base::win::Version::WIN10)
++    return true;
++#endif
+   return base::FeatureList::IsEnabled(kAllowANGLED3D9Fallback);
+ }
+ 

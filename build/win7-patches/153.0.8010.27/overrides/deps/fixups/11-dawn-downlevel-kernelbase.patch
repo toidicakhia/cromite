@@ -1,0 +1,35 @@
+diff --git a/third_party/dawn/src/dawn/native/d3d/PlatformFunctions.cpp b/src/dawn/native/d3d/PlatformFunctions.cpp
+index 141e735ce..d35ef053e 100644
+--- a/third_party/dawn/src/dawn/native/d3d/PlatformFunctions.cpp
++++ b/third_party/dawn/src/dawn/native/d3d/PlatformFunctions.cpp
+@@ -128,10 +128,12 @@ MaybeError PlatformFunctions::LoadKernelBase() {
+     compareObjectHandles = &CompareObjectHandles;
+ #else
+     std::string error;
+-    if (!mKernelBaseLib.OpenSystemLibrary(L"kernelbase.dll", &error) ||
+-        !mKernelBaseLib.GetProc(&compareObjectHandles, "CompareObjectHandles", &error)) {
++    if (!mKernelBaseLib.OpenSystemLibrary(L"kernelbase.dll", &error)) {
+         return DAWN_INTERNAL_ERROR(error.c_str());
+     }
++    // CompareObjectHandles is only available on Windows 10 and later, so it is
++    // allowed to be missing on downlevel systems. Callers must null-check it.
++    mKernelBaseLib.GetProc(&compareObjectHandles, "CompareObjectHandles", &error);
+ #endif
+     return {};
+ }
+diff --git a/third_party/dawn/src/dawn/native/d3d11/SharedFenceD3D11.cpp b/src/dawn/native/d3d11/SharedFenceD3D11.cpp
+index 375c59f61..2bc630beb 100644
+--- a/third_party/dawn/src/dawn/native/d3d11/SharedFenceD3D11.cpp
++++ b/third_party/dawn/src/dawn/native/d3d11/SharedFenceD3D11.cpp
+@@ -44,6 +44,11 @@ bool IsSameHandle(DeviceBase* device, HANDLE handle, HANDLE other) {
+     }
+ 
+     auto deviceD3D11 = ToBackend(device);
++    if (deviceD3D11->GetFunctionsBase()->compareObjectHandles == nullptr) {
++        // CompareObjectHandles is unavailable (e.g. on Windows 7/8); the
++        // handles can only be compared by value in that case.
++        return false;
++    }
+     return deviceD3D11->GetFunctionsBase()->compareObjectHandles(handle, other);
+ }
+ }  // namespace
