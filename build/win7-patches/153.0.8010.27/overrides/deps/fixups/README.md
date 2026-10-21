@@ -23,6 +23,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `14-enable-jit-webassembly.patch` | `components/content_settings` (1 file) | Re-enable the JavaScript JIT content setting by default (stock Chrome behavior) so WebAssembly works. See below. |
 | `15-disable-desktop-60hz-frame-throttle.patch` | `cc/base` (1 file) | Default `kThrottleMainFrameTo60Hz` to disabled on desktop, so cromite no longer appends `--disable-frame-rate-limit` (GPU starvation on old hardware). See below. |
 | `16-suppress-unsupported-os-warning.patch` | `chrome/browser/ui/startup` (1 file) | Default the `browser.suppress_unsupported_os_warning` pref to `true`, hiding the "To get future Cromite updates, you'll need Windows 10 or later" infobar on Win7/8/8.1. See below. |
+| `17-viewport-protection-hittest-fix.patch` | `third_party/blink` (1 file) | Map DIP coordinates by the device-emulation scale in the OOPIF hit test (`GetFrameSinkIdAtPoint`), so clicks land on cross-origin iframes (Proton Pass popup) while cromite's Viewport Protection is active. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -92,6 +93,26 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
   (`browser.suppress_unsupported_os_warning`); if a profile already has it set
   to `false`, it wins over the default (set/remove it while the browser is
   closed, or via policy).
+
+### `17-viewport-protection-hittest-fix.patch` contents
+
+- Cromite's Viewport Protection (blink `kViewportProtection`, enabled by
+  default) runs the tab through `ScreenMetricsEmulator` with a random scale
+  per origin/navigation (`page.cc: CalculateEmulatedScreenSetting`, observed
+  1.0022–1.0105): the widget's Blink space is enlarged by `1/scale` while the
+  compositor draws everything scaled back down by `scale`.
+- `WebFrameWidgetImpl::GetFrameSinkIdAtPoint()` hit-tested the raw DIP point
+  in that enlarged space, so the local point reported for a cross-origin
+  iframe was off by `position * (1 - 1/scale)` (measured ~2.7 px at x≈1350 for
+  scale 1.0022, ~11 px for scale 1.009).
+- The browser cross-checks the reply against its own viz transform
+  (`RenderWidgetTargeter`, 2 px epsilon) and drops the target on mismatch, so
+  clicks on the iframe fell through to the parent document (Proton Pass popup
+  unclickable).
+- Fix: scale the hit test point by `1/emulation_scale` when `DeviceEmulator()`
+  is active, matching `ScreenMetricsEmulator::Apply()`. Verified with
+  instrumented GEOM/REPLY logs (`resolved=CHILD final=CHILD`) and on the live
+  popup; Viewport Protection itself keeps working as before.
 
 ### `10-win7-runtime-fixes.patch` contents
 

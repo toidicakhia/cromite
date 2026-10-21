@@ -484,6 +484,7 @@ support" (dù WebCrypto/Web Storage thực tế vẫn OK; chỉ check WASM fail)
 - **Trạng thái: user xác nhận fix đúng qua chrome://flags; chờ test bản build mới.**
 - **Còn tồn (item (b)):** popup Proton Pass vẫn chưa click được — tách riêng, cần chẩn đoán tiếp
   (console của popup, hover/keyboard, `--disable-features=CalculateNativeWinOcclusion`, so sánh với extension khác).
+  → **Đã fix tại §16** (Viewport Protection OOPIF hit-test).
 
 ## 15. Bỏ infobar "you'll need Windows 10 or later" (2026-10-21)
 
@@ -525,3 +526,48 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 
 - `artifacts/final/` đã refresh.
 - **Trạng thái: chờ user test — kỳ vọng không còn infobar obsolete khi khởi động.**
+
+## 16. Fix click popup Proton Pass (OOPIF) — Viewport Protection device emulation (2026-10-21)
+
+### Triệu chứng
+
+- Popup Proton Pass (cross-origin iframe/OOPIF) hiển thị đúng nhưng **click không ăn** — click rơi xuống
+  trang cha. Đây là item (b) tồn đọng từ §14.
+- Chỉ xảy ra khi Viewport Protection bật (mặc định của cromite) và với iframe khác origin
+  (Proton Pass, khả năng cả Turnstile/Cloudflare).
+
+### Nguyên nhân gốc (cromite, không liên quan win7)
+
+1. Viewport Protection (blink `kViewportProtection`) random `scale` mỗi origin/navigation
+   (`page.cc: CalculateEmulatedScreenSetting`, `scale = 1/(1+half_random)`; đo được 1.0022–1.0105) và chạy
+   tab qua `ScreenMetricsEmulator`: widget renderer bị **phóng to ×1/scale** (Blink space), còn compositor
+   vẽ thu nhỏ lại ×scale (transform node trên visual viewport).
+2. `WebFrameWidgetImpl::GetFrameSinkIdAtPoint()` hit-test điểm DIP **thô** trong không gian Blink đã phóng
+   to → toạ độ local trả về cho iframe lệch `a×(1−1/scale)` (~2.7 px @ x≈1350 với scale 1.0022; ~11 px
+   với scale 1.009).
+3. Browser đối chiếu câu trả lời với phép biến đổi viz của chính nó (`RenderWidgetTargeter`, epsilon 2 px)
+   → GEOM fail → target rơi về ROOT (trang cha) → click bị nuốt.
+4. Chẩn đoán bằng build có log `[HITTEST]` (RFM/VPROP/XFORM/GEOM/REPLY, các bản v5–v7); số liệu khớp
+   đúng công thức lệch ở (2).
+
+### Fix (fixup `17-viewport-protection-hittest-fix.patch`)
+
+- Trong `GetFrameSinkIdAtPoint()`: khi `DeviceEmulator()` hoạt động, nhân điểm hit-test với
+  `1/emulation_scale` trước `CoreHitTestResultAt()` — khớp với `ScreenMetricsEmulator::Apply()`.
+- Không đụng transform hiển thị hay các path khác (event forward xuống child vốn đã đúng qua viz).
+- **Trạng thái: user xác nhận fix thành công** — GEOM pass (`resolved=CHILD final=CHILD`), popup Proton
+  Pass click được; Viewport Protection vẫn hoạt động bình thường. Bản build này đã gỡ toàn bộ log chẩn
+  đoán `[HITTEST]`, chỉ còn fix.
+
+### Artifacts (thay thế md5 ở §15)
+
+| File | md5 mới | md5 cũ (§15) |
+|---|---|---|
+| `chrome.dll` | `62647e8bcb4d49e8f63a6e515454b463` | `1eb08c64c600ecf0a89cc94d2bf23e0e` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `9e6e0a80524fafd7cbcc31f8f4621b61` (205.035.569 B, 11:52) | `0425d0e036c5716cfde915c6d1aea5b4` |
+| `chrome-win7-setup.exe` | `911913b99a0204da9f2118787d2a4340` (135.305.769 B, 11:56) | `10db282f6d8ba8131d5842ad1fa6be10` |
+
+- `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
+- Ghi chú: đây là bug của Viewport Protection (không riêng win7) — có thể báo upstream uazo/cromite kèm patch này.

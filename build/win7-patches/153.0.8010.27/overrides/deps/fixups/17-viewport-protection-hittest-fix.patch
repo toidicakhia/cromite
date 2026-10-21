@@ -1,0 +1,26 @@
+diff --git a/third_party/blink/renderer/core/frame/web_frame_widget_impl.cc b/third_party/blink/renderer/core/frame/web_frame_widget_impl.cc
+index 4d6ef573a4..4bece6756b 100644
+--- a/third_party/blink/renderer/core/frame/web_frame_widget_impl.cc
++++ b/third_party/blink/renderer/core/frame/web_frame_widget_impl.cc
+@@ -990,8 +990,19 @@ void WebFrameWidgetImpl::FrameSinkIdAt(const gfx::PointF& point,
+ viz::FrameSinkId WebFrameWidgetImpl::GetFrameSinkIdAtPoint(
+     const gfx::PointF& point_in_dips,
+     gfx::PointF* local_point_in_dips) {
+-  HitTestResult result =
+-      CoreHitTestResultAt(widget_base_->DIPsToBlinkSpace(point_in_dips));
++  gfx::PointF point_in_blink = widget_base_->DIPsToBlinkSpace(point_in_dips);
++  // Under device emulation the widget's Blink space is enlarged by
++  // 1/scale (see ScreenMetricsEmulator::Apply()), so DIP coordinates must be
++  // mapped with the same factor before hit testing, otherwise the hit test
++  // result (and the OOPIF target computation in the browser) is off.
++  float emulation_scale = 1.f;
++  if (ScreenMetricsEmulator* device_emulator = DeviceEmulator()) {
++    emulation_scale = device_emulator->scale();
++    if (emulation_scale > 0.f) {
++      point_in_blink.Scale(1.f / emulation_scale);
++    }
++  }
++  HitTestResult result = CoreHitTestResultAt(point_in_blink);
+ 
+   Node* result_node = result.InnerNode();
+   *local_point_in_dips = gfx::PointF(point_in_dips);
