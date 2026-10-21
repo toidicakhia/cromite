@@ -1,0 +1,62 @@
+diff --git a/net/socket/ssl_client_socket_impl.cc b/net/socket/ssl_client_socket_impl.cc
+--- a/net/socket/ssl_client_socket_impl.cc
++++ b/net/socket/ssl_client_socket_impl.cc
+@@ -194,7 +194,14 @@
+     ssl_socket_data_index_ =
+         SSL_get_ex_new_index(0, nullptr, nullptr, nullptr, nullptr);
+     DCHECK_NE(ssl_socket_data_index_, -1);
+     ssl_ctx_.reset(SSL_CTX_new(TLS_with_buffers_method()));
++    // Always announce the hardware-AES cipher preference (and ECH GREASE
++    // configuration) of AES-capable devices. On CPUs without AES-NI, Chromium
++    // otherwise reorders the TLS 1.3 cipher list / ECH config, adding a
++    // network-level fingerprint bit ("no hardware AES"). Bulk encryption
++    // still uses the software AES implementation in that case.
++    bssl::SSL_CTX_set_aes_hw_override_for_testing(ssl_ctx_.get(),
++                                                  /*override_value=*/true);
+     SSL_CTX_set_cert_cb(ssl_ctx_.get(), ClientCertRequestCallback, nullptr);
+ 
+     // Verifies the server certificate even on resumed sessions.
+diff --git a/net/third_party/quiche/src/quiche/quic/core/crypto/tls_connection.cc b/net/third_party/quiche/src/quiche/quic/core/crypto/tls_connection.cc
+--- a/net/third_party/quiche/src/quiche/quic/core/crypto/tls_connection.cc
++++ b/net/third_party/quiche/src/quiche/quic/core/crypto/tls_connection.cc
+@@ -128,7 +128,12 @@
+ }
+ 
+ // static
+ bssl::UniquePtr<SSL_CTX> TlsConnection::CreateSslCtx() {
+   bssl::UniquePtr<SSL_CTX> ssl_ctx(SSL_CTX_new(TLS_with_buffers_method()));
++  // Mirror net/socket/ssl_client_socket_impl.cc: always advertise the
++  // hardware-AES cipher preference, so the QUIC ClientHello does not reveal
++  // missing AES-NI support either.
++  bssl::SSL_CTX_set_aes_hw_override_for_testing(
++      ssl_ctx.get(), /*override_value=*/true);
+   SSL_CTX_set_min_proto_version(ssl_ctx.get(), TLS1_3_VERSION);
+   SSL_CTX_set_max_proto_version(ssl_ctx.get(), TLS1_3_VERSION);
+   SSL_CTX_set_quic_method(ssl_ctx.get(), &kSslQuicMethod);
+diff --git a/net/third_party/quiche/src/quiche/quic/core/crypto/quic_crypto_client_config.cc b/net/third_party/quiche/src/quiche/quic/core/crypto/quic_crypto_client_config.cc
+--- a/net/third_party/quiche/src/quiche/quic/core/crypto/quic_crypto_client_config.cc
++++ b/net/third_party/quiche/src/quiche/quic/core/crypto/quic_crypto_client_config.cc
+@@ -364,10 +364,7 @@
+   kexs = {kC255, kP256};
+ 
+-  // Authenticated encryption algorithms. Prefer AES-GCM if hardware-supported
+-  // fast implementation is available.
+-  if (EVP_has_aes_hardware() == 1) {
+-    aead = {kAESG, kCC20};
+-  } else {
+-    aead = {kCC20, kAESG};
+-  }
++  // Authenticated encryption algorithms. Always prefer AES-GCM, mirroring the
++  // TLS stack (net/socket/ssl_client_socket_impl.cc), so the ClientHello does
++  // not reveal missing hardware AES support.
++  aead = {kAESG, kCC20};
+ }
+diff --git a/cromite_flags/content/public/common/content_features_cc/Warning-message-for-unsupported-hardware-aes.inc b/cromite_flags/content/public/common/content_features_cc/Warning-message-for-unsupported-hardware-aes.inc
+--- a/cromite_flags/content/public/common/content_features_cc/Warning-message-for-unsupported-hardware-aes.inc
++++ b/cromite_flags/content/public/common/content_features_cc/Warning-message-for-unsupported-hardware-aes.inc
+@@ -1,4 +1,4 @@
+ // Show a warning message to user if aes hardware is not found
+ CROMITE_FEATURE(kNoAESHardwareMessage,
+                 "NoAESHardwareMessage",
+-                base::FEATURE_ENABLED_BY_DEFAULT);
++                base::FEATURE_DISABLED_BY_DEFAULT);

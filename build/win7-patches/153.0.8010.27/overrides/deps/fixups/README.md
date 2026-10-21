@@ -19,6 +19,27 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `10-win7-runtime-fixes.patch` | tracked MCP sources (26 files) | See list below. |
 | `11-dawn-downlevel-kernelbase.patch` | `third_party/dawn` | Treat a missing `CompareObjectHandles` (Win7/8) as optional; null-check it in `SharedFenceD3D11`. |
 | `12-webrtc-win7-desktop-capture.patch` | `third_party/webrtc` | `Shcore.dll` fallback is not reachable when the DLL is missing; fix DPI fallback path. `GetModuleFileNameEx` returns a NUL-terminated string (do not use `path_len`). |
+| `13-tls-aes-hw-preference.patch` | `net`, `net/third_party/quiche` (submodule), `cromite_flags` | Always announce the hardware-AES TLS/QUIC cipher preference and disable the cromite "no hw aes" warning by default. See below. |
+
+### `13-tls-aes-hw-preference.patch` contents
+
+- **net**: the shared client `SSL_CTX` in `ssl_client_socket_impl.cc`
+  (TCP TLS, DoH, WebSockets, proxies) calls
+  `bssl::SSL_CTX_set_aes_hw_override_for_testing(ctx, true)`, so the TLS 1.3
+  cipher list and the ECH GREASE configuration always match AES-capable
+  devices instead of revealing missing AES-NI support (cromite's patch
+  description: "an additional fingerprint bit").
+- **quiche** (submodule, worktree-only): same override for the QUIC
+  `TlsConnection::CreateSslCtx()`; `QuicCryptoClientConfig::SetDefaults()`
+  unconditionally prefers `{kAESG, kCC20}` for legacy GQUIC.
+- **cromite_flags**: `kNoAESHardwareMessage` is
+  `FEATURE_DISABLED_BY_DEFAULT` (the "Your device does not support hardware
+  aes, so it is easier to track you at the network level" infobar no longer
+  shows; can be re-enabled from `chrome://flags/#no-hw-aes-warning`).
+- Trade-off: on CPUs/VMs without AES-NI the TLS bulk encryption keeps using
+  BoringSSL's software AES (slower than ChaCha20, which BoringSSL would
+  otherwise prefer); only the advertised preference changes. The alternative
+  is a network-level fingerprint bit.
 
 ### `10-win7-runtime-fixes.patch` contents
 

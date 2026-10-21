@@ -306,3 +306,93 @@ Log user gửi (process browser, cmdline `"E:\chrome-win\chrome.exe"`, khớp Ev
 - `artifacts/chrome-win7.zip` đóng gói lại (205 MB). Bộ test kèm chẩn đoán giao user ở
   `artifacts/test2/` (`chrome-ksec-psapi.dll`, `chrome_elf-diag2.dll`, `chrome-diag2.exe`).
 - **Trạng thái: chờ user xác nhận hết "Aw, Snap"**; nếu còn lỗi delay-load khác, log diag sẽ chỉ tiếp.
+
+## 11. Fix fingerprint "không hỗ trợ AES" (2026-10-20)
+
+### Triệu chứng
+
+User báo chrome hiện infobar **"Your device does not support hardware aes, so it is easier to track you
+at the network level"** (chuỗi `IDS_UNSUPPORTED_AES_HARDWARE`, `chrome/app/generated_resources.grd`).
+
+### Nguồn & cơ chế
+
+1. Infobar đến từ patch cromite `build/patches/Warning-message-for-unsupported-hardware-aes.patch`
+   (uazo 2023-03-24): feature `kNoAESHardwareMessage` **default ENABLED**
+   (`cromite_flags/content/public/common/content_features_cc/Warning-message-for-unsupported-hardware-aes.inc`).
+2. `chrome/app/chrome_main_delegate.cc:1174` append `switches::kNoAESHardware` khi
+   `EVP_has_aes_hardware() == 0`; infobar hiện ở `chrome/browser/ui/startup/bad_flags_prompt.cc:323`.
+   Tắt trực tiếp được qua `chrome://flags/#no-hw-aes-warning`.
+3. Fingerprint thật sự nằm ở BoringSSL: `EVP_has_aes_hardware()`
+   (`third_party/boringssl/src/crypto/fipsmodule/cipher/e_aes.cc.inc:1232` = `hwaes_capable() &&
+   crypto_gcm_clmul_enabled()`) trả 0 → client đổi thứ tự cipher TLS 1.3
+   (`ssl/handshake_client.cc:130`, `kCiphersNoAESHardware` — ChaCha20 lên đầu) + cấu hình ECH
+   (`ssl/encrypted_client_hello.cc:688,748`). NASM asm **có** được build
+   (`out/win64/obj/third_party/boringssl/boringssl_asm/aesni-x86_64-win.o`…) → detection là thật;
+   CPU/VM Win8.1 của user không có AES-NI.
+
+### Fix (fixup `13-tls-aes-hw-preference.patch`)
+
+- `net/socket/ssl_client_socket_impl.cc`: `bssl::SSL_CTX_set_aes_hw_override_for_testing(ctx, true)`
+  trên SSLContext dùng chung (TCP TLS, DoH, WebSockets, proxy) — API BoringSSL duy nhất cho việc này
+  (`ssl.h:6865`, trong `BSSL_NAMESPACE_BEGIN`).
+- `net/third_party/quiche` (submodule, worktree-only): override tương tự trong
+  `TlsConnection::CreateSslCtx()`; `QuicCryptoClientConfig::SetDefaults()` bỏ nhánh
+  `EVP_has_aes_hardware()`, luôn `aead = {kAESG, kCC20}` (GQUIC).
+- `cromite_flags/.../Warning-message-for-unsupported-hardware-aes.inc`:
+  `FEATURE_ENABLED_BY_DEFAULT` → `FEATURE_DISABLED_BY_DEFAULT` (infobar tắt).
+- Trade-off: CPU/VM không AES-NI sẽ mã hoá bulk TLS bằng AES phần mềm (chậm hơn ChaCha20) — chấp nhận
+  theo yêu cầu user để tránh fingerprint bit tầng mạng.
+- Đã `git apply --check` + áp + reverse-check OK; compile lỗi đầu (`SSL_CTX_set_aes_hw_override_for_testing`
+  cần prefix `bssl::`) → sửa + rebuild sạch.
+
+### Artifacts (thay thế md5 ở §10)
+
+| File | md5 mới | md5 cũ (§10) |
+|---|---|---|
+| `chrome.dll` | `274a78db3057690aef426c92e8318ff7` | `1a902484ffbab81ada6aaa967334ad7e` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | `290e8c2e83d930e5ff8cf75b898dd9ab` |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+
+- `artifacts/chrome-win7.zip` đóng gói lại (15:04, 205.031.931 B); `artifacts/final/` đã cập nhật.
+- **Trạng thái: chờ user test — kỳ vọng hết infobar AES + xác nhận hết "Aw, Snap" (§10).**
+
+## 12. Installer NSIS (2026-10-20)
+
+### Vị trí & pipeline
+
+- Script: `cromite/build/win7-patches/153.0.8010.27/installer/chrome-win7.nsi`
+  + `installer/chrome.ico` (trích từ `chrome.exe`, IDR_MAINFRAME, 16–256 px, bằng `wrestool`).
+- Build: `scripts/10-installer.sh` (đã thêm vào `build-all.sh` sau `09-package.sh`; cần `apt install nsis`
+  — makensis 3.09). Đóng gói `artifacts/chrome-win/` (payload từ 09) → `artifacts/chrome-win7-setup.exe`.
+
+### Thiết kế installer
+
+- NSIS 3.09 Unicode, Modern UI 2, tiếng Anh; **per-machine**: `$PROGRAMFILES64\Cromite`,
+  `RequestExecutionLevel admin` (chưa ký số → UAC hiện "Unknown publisher", bình thường).
+- `SetRegView 64` toàn cục để OS thấy phần browser registration (nếu ghi vào Wow6432Node sẽ vô hiệu).
+- Trang: Welcome → Components (Desktop shortcut, mặc định bật) → Directory → InstFiles → Finish
+  (checkbox "Launch Cromite"; chạy qua `explorer.exe` để không kế thừa token admin).
+- Đăng ký: Add/Remove Programs (HKLM, `QuietUninstallString` = `/S`), Start Menu (Cromite + Uninstall),
+  browser registration tối thiểu (`Clients\StartMenuInternet\Cromite` + `Capabilities` +
+  `RegisteredApplications` + ProgID `CromiteURL` cho http/https) → hiện trong "Default Programs",
+  **không** ép default; `App Paths\chrome.exe` cho Win+R.
+- Uninstall: xóa shortcuts + registry + `RMDir /r $INSTDIR`; **giữ nguyên profile** người dùng.
+- Nén `SetCompressor /SOLID lzma` (dict 64 MB, single-thread ~3m23s): payload 493 MB → 135.296.159 B
+  (~129 MiB).
+
+### Kiểm chứng trên Linux (không có wine nên không chạy thử được)
+
+- `makensis` biên dịch sạch (chỉ còn warning cosmetic của `MUI_FINISHPAGE_RUN`… đã xử lý).
+- `7z t/l` OK: 468 entries, gồm `chrome.dll`/`resources.pak`/`locales/vi.pak`/`uninstall.exe`.
+- `wrestool`: có group icon (7 size) + version resource UTF-16 ("Cromite Setup", "153.0.8010.37")
+  + manifest (`ManifestSupportedOS all`).
+
+### Artifact
+
+| File | md5 |
+|---|---|
+| `artifacts/chrome-win7-setup.exe` | `89a3853491d51057eea5496c4c5cc60b` |
+
+- **Trạng thái: chờ user cài thử trên Win8.1** (UAC Yes → `C:\Program Files\Cromite` → shortcut →
+  gỡ qua Control Panel; `/S` = silent install). Hạng mục để sau (nếu cần): ký số, per-user install,
+  giao diện tiếng Việt, auto-update.

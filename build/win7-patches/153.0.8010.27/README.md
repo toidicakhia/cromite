@@ -19,3 +19,7 @@ Imported from <https://github.com/e3kskoy7wqk/Chromium-for-windows-7-REWORK>
   the original.
 - Expected run summary (2026-10-20 optimization): 335/335 performed, 50 skipped,
   35 `[WIN7]` commits.
+- `installer/chrome-win7.nsi` (+ `chrome.ico` extracted from `chrome.exe`) builds
+  the per-machine NSIS setup `artifacts/chrome-win7-setup.exe` via
+  `scripts/10-installer.sh`; it installs the `artifacts/chrome-win/` payload
+  (output of `09-package.sh`).
