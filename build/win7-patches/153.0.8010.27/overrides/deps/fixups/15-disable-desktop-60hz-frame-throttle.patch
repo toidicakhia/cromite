@@ -1,0 +1,18 @@
+diff --git a/cc/base/features.cc b/cc/base/features.cc
+index f90b4254b0..8c979892e6 100644
+--- a/cc/base/features.cc
++++ b/cc/base/features.cc
+@@ -185,7 +185,12 @@ BASE_FEATURE_PARAM(int,
+                    2);
+ 
+ // Enabled on Android, after a field trial showed improvements.
+-CROMITE_FEATURE(kThrottleMainFrameTo60Hz, "ThrottleMainFrameTo60Hz", base::FEATURE_ENABLED_BY_DEFAULT);
++// [WIN7] Disabled on desktop: with the feature enabled,
++// chrome_content_browser_client.cc appends --disable-frame-rate-limit to the
++// browser command line, which saturates the GPU on old hardware (e.g. Intel
++// Ironlake) and makes pages and extension popups hang. Re-enableable from
++// chrome://flags.
++CROMITE_FEATURE(kThrottleMainFrameTo60Hz, "ThrottleMainFrameTo60Hz", base::FEATURE_DISABLED_BY_DEFAULT);
+ 
+ #if BUILDFLAG(IS_ANDROID)
+ BASE_FEATURE(kThrottleMainFrameTo60HzWebView,

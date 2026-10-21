@@ -396,3 +396,132 @@ at the network level"** (chuỗi `IDS_UNSUPPORTED_AES_HARDWARE`, `chrome/app/gen
 - **Trạng thái: chờ user cài thử trên Win8.1** (UAC Yes → `C:\Program Files\Cromite` → shortcut →
   gỡ qua Control Panel; `/S` = silent install). Hạng mục để sau (nếu cần): ký số, per-user install,
   giao diện tiếng Việt, auto-update.
+
+## 13. Fix WebAssembly bị tắt (Proton Pass) — JIT mặc định (2026-10-21)
+
+### Triệu chứng
+
+Proton Pass (web app/extension) báo "Proton Pass requires a modern web browser with cutting edge support
+for WebCrypto (PRNG) and Web Storage" + "WebAssembly: Please update to a modern browser with WASM
+support" (dù WebCrypto/Web Storage thực tế vẫn OK; chỉ check WASM fail).
+
+### Nguyên nhân gốc (cromite, không liên quan win7)
+
+1. `build/patches/JIT-site-settings.patch` (cromite, từ Bromite) đổi default của content setting
+   `JAVASCRIPT_JIT` thành `CONTENT_SETTING_BLOCK` ("disabled by default") —
+   `components/content_settings/core/browser/content_settings_registry.cc:578`.
+2. `RenderProcessHostImpl::AppendRendererCommandLine` thấy `IsJitDisabled()` → thêm `--jitless` vào
+   `--js-flags` của renderer.
+3. V8: `DEFINE_IMPLICATION(jitless, wasm_jitless)` (`v8/src/flags/flag-definitions.h:2368`) — jitless kéo
+   theo wasm-jitless (interpreter DRUMBRAKE chỉ có ở d8/tvOS, không build trong Chromium) →
+   `WebAssembly` không tồn tại trong JS → mọi web app cần WASM đều fail.
+   (Từ khoá trong chính patch cromite: `// disable jit but enable webassembly` — họ biết nhưng comment lại.)
+
+### Fix (fixup `14-enable-jit-webassembly.patch`)
+
+- Đổi default về `CONTENT_SETTING_ALLOW` (hành vi Chrome gốc). Setting vẫn hoạt động: site cụ thể vẫn có
+  thể bị block JIT (renderer nhận `--jitless`) qua UI content settings.
+- Trade-off: bật lại attack surface JIT mà cromite chủ động tắt; **không thể có WebAssembly nếu không có
+  JIT** nên đây là lựa chọn bắt buộc nếu muốn Proton Pass/WASM chạy.
+
+### Artifacts (thay thế md5 ở §11)
+
+| File | md5 mới | md5 cũ (§11) |
+|---|---|---|
+| `chrome.dll` | `ce88f7edaa15591cdba9a6be0645e687` | `274a78db3057690aef426c92e8318ff7` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7-setup.exe` | `daf21851e7e0f197392f4fd70891c2fe` | `89a3853491d51057eea5496c4c5cc60b` |
+
+- `chrome-win7.zip` đóng gói lại (205.030.096 B, 02:03); `artifacts/final/` + installer đã refresh.
+- **Trạng thái: chờ user test — mở Proton Pass, kỳ vọng hết báo WebAssembly.**
+
+## 14. Fix lag page/đơ popup (Google account) — throttle 60Hz mặc định của cromite (2026-10-21)
+
+### Triệu chứng (user báo trên Win8.1, GPU Intel Ironlake 2010, driver 8.15.10.2900)
+
+- Vào một số trang nặng thì lag; click mở popup tài khoản Google (overlay Material có animation/blur) thì **đơ cả UI**.
+- Nghi vấn kèm theo: popup Proton Pass "UI hiện nhưng click không ăn" (input bị dồn hàng đợi sau frame queue).
+
+### Nguyên nhân gốc (cromite, không liên quan win7)
+
+1. `build/patches/Set-the-screen-frame-rate-to-60-Hz.patch` đặt `kThrottleMainFrameTo60Hz` =
+   `CROMITE_FEATURE(..., FEATURE_ENABLED_BY_DEFAULT)` trên **mọi nền tảng** (`cc/base/features.cc:188`).
+2. `ChromeContentBrowserClient::AppendExtraCommandLineSwitches`
+   (`chrome/browser/chrome_content_browser_client.cc`, nhánh `#if !BUILDFLAG(IS_ANDROID)`) thấy feature bật →
+   tự `AppendSwitch(kDisableFrameRateLimit)` vào chính command line của browser.
+3. Switch `--disable-frame-rate-limit` được copy sang GPU/renderer (`gpu_process_host.cc`) và tắt bộ giới hạn
+   frame nội bộ (`ui/compositor/compositor.cc`, `viz_process_transport_factory.cc`). Trên GPU yếu, mọi hoạt ảnh
+   đẩy frame không kiểm soát → bão hòa GPU, frame dồn hàng đợi → lag/đơ UI và input không được xử lý kịp.
+
+### Bằng chứng từ `chrome://gpu` của user
+
+- `Command Line: "...chrome.exe" --profile-directory=Default --no-aes-hardware --flag-switches-begin
+  --flag-switches-end --site-per-process --disable-frame-rate-limit`
+  - `--disable-frame-rate-limit`: do cromite tự thêm như trên (không phải user).
+  - `--site-per-process`: mặc định cromite (patch `Enable-StrictOriginIsolation-and-SitePerProcess`) — bình thường.
+  - `--no-aes-hardware`: CPU thiếu AES-NI — khớp bối cảnh fixup 13 (software AES-GCM thay ChaCha20).
+- Sau khi user đặt `chrome://flags/#throttle-main-thread-to-60hz` = **Disabled** + Relaunch:
+  popup Google **hết đơ**, lag page **hết** → xác nhận nguyên nhân.
+
+### Fix (fixup `15-disable-desktop-60hz-frame-throttle.patch`)
+
+- Đổi default của `kThrottleMainFrameTo60Hz` về `FEATURE_DISABLED_BY_DEFAULT` (khôi phục hành vi desktop của
+  upstream Chromium) → không còn append `--disable-frame-rate-limit`.
+- Ai muốn throttle 60Hz vẫn bật được qua `chrome://flags/#throttle-main-thread-to-60hz`.
+
+### Artifacts (thay thế md5 ở §13)
+
+| File | md5 mới | md5 cũ (§13) |
+|---|---|---|
+| `chrome.dll` | `011241e095a78c01632528c51cf89394` | `ce88f7edaa15591cdba9a6be0645e687` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `4a2c8dcda55654591dca904cc2b3600d` (205.031.966 B, 02:56) | `...` (02:03) |
+| `chrome-win7-setup.exe` | `4b61c2e74868a7af3aca7af0754085f2` (135.312.659 B, 03:00) | `daf21851e7e0f197392f4fd70891c2fe` |
+
+- `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
+- **Trạng thái: user xác nhận fix đúng qua chrome://flags; chờ test bản build mới.**
+- **Còn tồn (item (b)):** popup Proton Pass vẫn chưa click được — tách riêng, cần chẩn đoán tiếp
+  (console của popup, hover/keyboard, `--disable-features=CalculateNativeWinOcclusion`, so sánh với extension khác).
+
+## 15. Bỏ infobar "you'll need Windows 10 or later" (2026-10-21)
+
+### Triệu chứng
+
+Mỗi lần mở trình duyệt hiện infobar: *"To get future Cromite updates, you'll need Windows 10 or later.
+This computer is using Windows 8.1. Learn more"* — upstream Chromium M109+ coi Win7/8/8.1 là obsolete,
+nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhiễu.
+
+### Cơ chế
+
+1. `ObsoleteSystem::IsObsoleteNowOrSoon()` (`chrome/browser/obsolete_system/obsolete_system_win.cc`) =
+   `GetRealOSVersion() < WIN10`, và `IsEndOfTheLine()` = `CHROME_VERSION_MAJOR >= 109`.
+2. `infobar_utils.cc` (~:197) tạo `ObsoleteSystemInfoBarDelegate` khi obsolete, **trừ khi**
+   `local_state` có `prefs::kSuppressUnsupportedOSWarning` = true (pref upstream, có cả enterprise policy
+   `SuppressUnsupportedOSWarning`).
+3. Default của pref đăng ký tại `StartupBrowserCreator::RegisterLocalStatePrefs()`
+   (`chrome/browser/ui/startup/startup_browser_creator.cc:942`) = `false` → luôn hiện.
+
+### Fix (fixup `16-suppress-unsupported-os-warning.patch`)
+
+- Đổi default `kSuppressUnsupportedOSWarning` → `true`. Giữ semantics upstream: policy
+  `SuppressUnsupportedOSWarning=false` vẫn bật lại được infobar; `IsEndOfTheLine()` vẫn true nên
+  upgrade-detector vẫn bỏ qua obsolete OS (không sinh thêm bubble "out of date").
+- Không dùng cách patch `IsObsoleteNowOrSoon()=false` vì sẽ vô hiệu hoá luôn cảnh báo ở About/settings
+  và bỏ early-return của `UpgradeDetectorImpl::StartOutdatedBuildDetector()`.
+- Lưu ý: pref nằm trong `Local State` (`browser.suppress_unsupported_os_warning`); profile đã bị ghi
+  `false` từ trước sẽ đè lên default (sửa/xoá khi browser đóng).
+
+### Artifacts (thay thế md5 ở §14)
+
+| File | md5 mới | md5 cũ (§14) |
+|---|---|---|
+| `chrome.dll` | `1eb08c64c600ecf0a89cc94d2bf23e0e` | `011241e095a78c01632528c51cf89394` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `0425d0e036c5716cfde915c6d1aea5b4` (205.031.928 B, 03:11) | `4a2c8dcda55654591dca904cc2b3600d` |
+| `chrome-win7-setup.exe` | `10db282f6d8ba8131d5842ad1fa6be10` (135.317.733 B, 03:15) | `4b61c2e74868a7af3aca7af0754085f2` |
+
+- `artifacts/final/` đã refresh.
+- **Trạng thái: chờ user test — kỳ vọng không còn infobar obsolete khi khởi động.**

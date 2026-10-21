@@ -20,6 +20,9 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `11-dawn-downlevel-kernelbase.patch` | `third_party/dawn` | Treat a missing `CompareObjectHandles` (Win7/8) as optional; null-check it in `SharedFenceD3D11`. |
 | `12-webrtc-win7-desktop-capture.patch` | `third_party/webrtc` | `Shcore.dll` fallback is not reachable when the DLL is missing; fix DPI fallback path. `GetModuleFileNameEx` returns a NUL-terminated string (do not use `path_len`). |
 | `13-tls-aes-hw-preference.patch` | `net`, `net/third_party/quiche` (submodule), `cromite_flags` | Always announce the hardware-AES TLS/QUIC cipher preference and disable the cromite "no hw aes" warning by default. See below. |
+| `14-enable-jit-webassembly.patch` | `components/content_settings` (1 file) | Re-enable the JavaScript JIT content setting by default (stock Chrome behavior) so WebAssembly works. See below. |
+| `15-disable-desktop-60hz-frame-throttle.patch` | `cc/base` (1 file) | Default `kThrottleMainFrameTo60Hz` to disabled on desktop, so cromite no longer appends `--disable-frame-rate-limit` (GPU starvation on old hardware). See below. |
+| `16-suppress-unsupported-os-warning.patch` | `chrome/browser/ui/startup` (1 file) | Default the `browser.suppress_unsupported_os_warning` pref to `true`, hiding the "To get future Cromite updates, you'll need Windows 10 or later" infobar on Win7/8/8.1. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -40,6 +43,55 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
   BoringSSL's software AES (slower than ChaCha20, which BoringSSL would
   otherwise prefer); only the advertised preference changes. The alternative
   is a network-level fingerprint bit.
+
+### `14-enable-jit-webassembly.patch` contents
+
+- cromite's `JIT-site-settings.patch` registers the `JAVASCRIPT_JIT` content
+  setting with `CONTENT_SETTING_BLOCK` as its default ("disabled by default").
+  `RenderProcessHostImpl::AppendRendererCommandLine` then adds `--jitless` to
+  `--js-flags` for every renderer, and V8's `--jitless` implies
+  `--wasm-jitless` (`DEFINE_IMPLICATION(jitless, wasm_jitless)` in
+  `v8/src/flags/flag-definitions.h`); the jitless WebAssembly interpreter
+  (DRUMBRAKE) is not built in Chromium, so `WebAssembly` is not exposed at all.
+  Web apps that hard-require WASM (e.g. Proton Pass: "Your browser ...
+  WebAssembly: Please update to a modern browser with WASM support") break.
+- The fix flips the registry default back to `CONTENT_SETTING_ALLOW` (stock
+  Chrome behavior). The setting remains functional: individual sites can still
+  be blocked (renderer gets `--jitless` for them) from the site settings UI.
+- Trade-off: this restores the stock JIT attack surface that cromite
+  deliberately removes by default; WebAssembly cannot work without JIT.
+
+### `15-disable-desktop-60hz-frame-throttle.patch` contents
+
+- cromite's `Set-the-screen-frame-rate-to-60-Hz.patch` defines
+  `kThrottleMainFrameTo60Hz` with `CROMITE_FEATURE(..., FEATURE_ENABLED_BY_DEFAULT)`
+  on every platform, and `ChromeContentBrowserClient::AppendExtraCommandLineSwitches`
+  (non-Android) then appends `--disable-frame-rate-limit` to the browser
+  command line. The switch removes the compositor's internal frame limit on
+  the browser, GPU and renderer processes (`gpu_process_host.cc`,
+  `ui/compositor/compositor.cc`, `viz_process_transport_factory.cc`).
+- On old GPUs (verified on Intel Ironlake + 2011 driver, Windows 8.1) this
+  saturates the GPU: heavy pages lag and animated overlays (e.g. Google's
+  account chooser) hang the whole UI. It also delays input processing.
+- The fix flips the feature default to `FEATURE_DISABLED_BY_DEFAULT` on
+  desktop (restores upstream desktop behavior). Users can still opt in via
+  `chrome://flags/#throttle-main-thread-to-60hz`.
+
+### `16-suppress-unsupported-os-warning.patch` contents
+
+- `StartupBrowserCreator::RegisterLocalStatePrefs()` registers
+  `browser.suppress_unsupported_os_warning` with a default of `false`; on
+  Windows 7/8/8.1 (`ObsoleteSystem::IsObsoleteNowOrSoon()` +
+  `IsEndOfTheLine()`), `infobar_utils.cc` therefore shows the upstream
+  "To get future Cromite updates, you'll need Windows 10 or later" infobar at
+  every startup.
+- The fix defaults the pref to `true`, i.e. always suppressed on this fork.
+  This is the same switch the `SuppressUnsupportedOSWarning` enterprise policy
+  controls, so policy can still turn the infobar back on.
+- Note: the pref is stored in `Local State`
+  (`browser.suppress_unsupported_os_warning`); if a profile already has it set
+  to `false`, it wins over the default (set/remove it while the browser is
+  closed, or via policy).
 
 ### `10-win7-runtime-fixes.patch` contents
 

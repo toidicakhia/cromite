@@ -1,0 +1,16 @@
+diff --git a/chrome/browser/ui/startup/startup_browser_creator.cc b/chrome/browser/ui/startup/startup_browser_creator.cc
+index 87729cf6f8..d8351aa3c5 100644
+--- a/chrome/browser/ui/startup/startup_browser_creator.cc
++++ b/chrome/browser/ui/startup/startup_browser_creator.cc
+@@ -939,7 +939,10 @@ void StartupBrowserCreator::RegisterLocalStatePrefs(
+   registry->RegisterBooleanPref(prefs::kCommandLineFlagSecurityWarningsEnabled,
+                                 true);
+ #endif
+-  registry->RegisterBooleanPref(prefs::kSuppressUnsupportedOSWarning, false);
++  // [WIN7] Do not show the "To get future Cromite updates, you'll need
++  // Windows 10 or later" infobar on Windows 7/8/8.1 (this fork supports them).
++  // The SuppressUnsupportedOSWarning policy can still set the pref to false.
++  registry->RegisterBooleanPref(prefs::kSuppressUnsupportedOSWarning, true);
+   registry->RegisterBooleanPref(prefs::kWasRestarted, false);
+ 
+ #if BUILDFLAG(IS_WIN)
