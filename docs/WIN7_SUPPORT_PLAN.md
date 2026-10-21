@@ -571,3 +571,48 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 
 - `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
 - Ghi chú: đây là bug của Viewport Protection (không riêng win7) — có thể báo upstream uazo/cromite kèm patch này.
+
+## 17. Fix dải đen cửa sổ DevTools (popup layout + native caption) (2026-10-21)
+
+### Triệu chứng
+
+- Cửa sổ DevTools (undocked) trên Win8.1: một **dải đen** giữa thanh caption hệ thống và nội dung
+  frontend (nội dung bị đẩy xuống).
+- Chỉ cửa sổ DevTools bị: tắt GPU (`--disable-gpu`) vẫn đen; zoom/đổi panel/resize không đổi;
+  các cửa sổ browser thường bình thường.
+
+### Nguyên nhân gốc (win7 delta + layout popup của M153)
+
+1. Cửa sổ DevTools là browser type `TYPE_DEVTOOLS` → được layout bằng
+   `BrowserViewPopupLayoutImpl::CalculateTopContainerLayout()` ("Layout starts beneath the caption
+   buttons… title is laid out by the OS in popup mode"): layout **luôn chừa một dải trên** bằng chiều
+   cao exclusion caption-buttons (~`GetFrameHeight()` ≈ chiều cao titlebar).
+2. Exclusion do `BrowserFrameViewWin::GetBrowserLayoutParams()` cung cấp từ bounds của
+   `caption_button_container_` — được tính vô điều kiện, kể cả khi cửa sổ dùng native caption.
+3. Trên Win10+ dải đó được `PaintTitlebar()` vẽ (Chrome tự vẽ titlebar). Bản win7 trên Win8.1:
+   `ShouldBrowserCustomDrawTitlebar()` = false (delta guard `< WIN10`) và delta bỏ
+   `PaintTitlebar()` → dải bị chừa nhưng **không ai vẽ**. Nội dung cửa sổ lại trong suốt
+   (`ShouldWindowContentsBeTransparent()` = true khi Aero) → DWM composite vùng trống thành **đen**.
+
+### Fix (fixup `18-devtools-popup-caption-strip-fix.patch`)
+
+- `GetBrowserLayoutParams()`: với cửa sổ popup-type dùng native frame
+  (`!GetIsNormalType() && !IsOpaqueHostedAppFrame() && !ShouldBrowserCustomDrawTitlebar()`), trả về
+  params **không kèm exclusion** → popup layout không chừa dải → nội dung DevTools lên sát caption.
+- Giữ nguyên exclusion cho web app frame (tự vẽ nút trong client area) và cửa sổ tabbed thường.
+- **Trạng thái: user xác nhận fix thành công** trên Win8.1 — dải đen mất, dock/undock/zoom/đổi panel
+  bình thường.
+
+### Artifacts (thay thế md5 ở §16)
+
+| File | md5 mới | md5 cũ (§16) |
+|---|---|---|
+| `chrome.dll` | `e8edf6149604ed0a53b8fb83d41cdf2c` | `62647e8bcb4d49e8f63a6e515454b463` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `a688c301f4a05b054efbbb3991cd72f8` (205.033.780 B, 12:43) | `9e6e0a80524fafd7cbcc31f8f4621b61` |
+| `chrome-win7-setup.exe` | `b0f3d9b4a5cd0bf7f1f2bceed2932b9d` (135.303.733 B, 12:47) | `911913b99a0204da9f2118787d2a4340` |
+
+- `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
+- Ghi chú: đây là bug tương tác giữa layout popup của M153 với native caption (không riêng win7 — sẽ
+  gặp khi chạy native frame trên Win10 bằng theme hệ thống); có thể báo upstream kèm patch này.

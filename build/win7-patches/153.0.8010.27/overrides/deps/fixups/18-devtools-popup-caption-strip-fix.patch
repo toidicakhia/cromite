@@ -1,0 +1,27 @@
+diff --git a/chrome/browser/ui/views/frame/browser_frame_view_win.cc b/chrome/browser/ui/views/frame/browser_frame_view_win.cc
+index 4e9ecb2291..4e26538358 100644
+--- a/chrome/browser/ui/views/frame/browser_frame_view_win.cc
++++ b/chrome/browser/ui/views/frame/browser_frame_view_win.cc
+@@ -203,6 +203,22 @@ BrowserFrameViewWin::~BrowserFrameViewWin() = default;
+ BrowserLayoutParams BrowserFrameViewWin::GetBrowserLayoutParams() const {
+   BrowserLayoutParams params;
+   params.visual_client_area = client_view_bounds_;
++
++  // Popup-type windows that don't custom-draw the titlebar (e.g. the undocked
++  // DevTools window on pre-Win10) use the native frame, whose caption buttons
++  // live in the non-client area; nothing in the client area needs to avoid
++  // them. The popup layout would otherwise reserve an unpainted strip below
++  // the caption for those buttons, which shows as black over transparent
++  // window contents. Windows with a custom-drawn or opaque hosted app frame
++  // still draw their own caption buttons inside the client area.
++  const bool opaque_hosted_app_frame =
++      GetBrowserView()->GetIsWebAppType() &&
++      base::win::GetVersion() < base::win::Version::WIN10;
++  if (!GetBrowserView()->GetIsNormalType() && !opaque_hosted_app_frame &&
++      !ShouldBrowserCustomDrawTitlebar(GetBrowserView())) {
++    return params;
++  }
++
+   const int top = params.visual_client_area.y();
+   const auto& caption = caption_button_container_->bounds();
+   // In some cases, the top of the client area is moved down, but slightly

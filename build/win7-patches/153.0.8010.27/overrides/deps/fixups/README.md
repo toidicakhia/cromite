@@ -24,6 +24,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `15-disable-desktop-60hz-frame-throttle.patch` | `cc/base` (1 file) | Default `kThrottleMainFrameTo60Hz` to disabled on desktop, so cromite no longer appends `--disable-frame-rate-limit` (GPU starvation on old hardware). See below. |
 | `16-suppress-unsupported-os-warning.patch` | `chrome/browser/ui/startup` (1 file) | Default the `browser.suppress_unsupported_os_warning` pref to `true`, hiding the "To get future Cromite updates, you'll need Windows 10 or later" infobar on Win7/8/8.1. See below. |
 | `17-viewport-protection-hittest-fix.patch` | `third_party/blink` (1 file) | Map DIP coordinates by the device-emulation scale in the OOPIF hit test (`GetFrameSinkIdAtPoint`), so clicks land on cross-origin iframes (Proton Pass popup) while cromite's Viewport Protection is active. See below. |
+| `18-devtools-popup-caption-strip-fix.patch` | `chrome/browser/ui/views/frame` (1 file) | Don't report caption-button exclusions for popup-type windows with a native frame, removing the unpainted (black) strip below the caption of the undocked DevTools window on pre-Win10. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -113,6 +114,31 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
   is active, matching `ScreenMetricsEmulator::Apply()`. Verified with
   instrumented GEOM/REPLY logs (`resolved=CHILD final=CHILD`) and on the live
   popup; Viewport Protection itself keeps working as before.
+
+### `18-devtools-popup-caption-strip-fix.patch` contents
+
+- On pre-Win10 the tracked delta disables custom-drawn titlebars
+  (`ShouldBrowserCustomDrawTitlebar()` returns false) and skips
+  `BrowserFrameViewWin::PaintTitlebar()`; windows use the native caption.
+- Popup-type windows (undocked DevTools: `TYPE_DEVTOOLS`) are laid out by
+  `BrowserViewPopupLayoutImpl::CalculateTopContainerLayout()`, which always
+  reserves a top strip from the caption-button exclusions supplied by
+  `BrowserFrameViewWin::GetBrowserLayoutParams()`. That strip is painted by
+  `PaintTitlebar()` only when the titlebar is custom-drawn, so on pre-Win10
+  it stays unpainted; the window contents are transparent on Aero
+  (`ShouldWindowContentsBeTransparent()`), and the DWM composites the
+  unpainted strip as black.
+- Fix: `GetBrowserLayoutParams()` returns no exclusions for popup-type
+  windows that use a native frame (`!GetIsNormalType()`, not an opaque hosted
+  app frame, `!ShouldBrowserCustomDrawTitlebar()`), so the popup layout no
+  longer reserves the strip and the DevTools content starts right below the
+  caption.
+- Web app windows (`IsOpaqueHostedAppFrame()`, custom-drawn on `< Win10`) and
+  normal tabbed windows keep their exclusions (their UI draws in-client
+  caption buttons).
+- Verified on Win8.1 (undocked DevTools): black strip gone, dock/undock,
+  zoom, resize and panel switching behave normally; regular browser windows
+  unaffected.
 
 ### `10-win7-runtime-fixes.patch` contents
 
