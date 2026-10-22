@@ -1,0 +1,19 @@
+diff --git a/third_party/blink/renderer/platform/widget/compositing/layer_tree_settings.cc b/third_party/blink/renderer/platform/widget/compositing/layer_tree_settings.cc
+index dc7fcfcf5b..067a02e04b 100644
+--- a/third_party/blink/renderer/platform/widget/compositing/layer_tree_settings.cc
++++ b/third_party/blink/renderer/platform/widget/compositing/layer_tree_settings.cc
+@@ -322,6 +322,14 @@ cc::LayerTreeSettings GenerateLayerTreeSettings(
+       gpu_rasterization_msaa_sample_count;
+ 
+   settings.can_use_lcd_text = platform->IsLcdTextEnabled();
++  // [WIN7] Rasterize text with subpixel (LCD/ClearType) antialiasing in all
++  // content layers instead of only in "safe" ones, matching what the browser
++  // UI compositor does (ui/compositor/compositor.cc sets the same flag).
++  // Without this, cc disallows LCD text for text in floating/composited
++  // content (dialogs with transform/will-change/backdrop-filter, extension
++  // bubbles, animated menus) and renders it with grayscale AA, which looks
++  // blurry next to ClearType-rendered text.
++  settings.layers_always_allowed_lcd_text = true;
+   settings.use_zero_copy = cmd.HasSwitch(switches::kEnableZeroCopy);
+   settings.use_partial_raster = !cmd.HasSwitch(switches::kDisablePartialRaster);
+   // Partial raster is not supported with RawDraw

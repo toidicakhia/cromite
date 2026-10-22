@@ -721,3 +721,60 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 - Đánh đổi: mở lại các fingerprint bit của ClearType tuner (hướng, gamma/contrast) mà cromite cố che;
   muốn quay lại hành vi cromite thì bỏ fixup này (không có flag).
 - Trạng thái: build xong, chờ user xác nhận trên Win8.1 (so sánh chữ trong modal trước/sau).
+
+## 20. Fix nốt phần chữ mờ còn lại — ép LCD text toàn bộ layer renderer (2026-10-22)
+
+### Phản hồi user sau fixup 19
+
+- "Không thay đổi text, vẫn còn blur" + 2 screenshot mới (modal FB + bubble Proton).
+- Nhưng forensics cho thấy **build mới ĐÃ có hiệu lực**: URL bar (omnibox) trong ảnh mới có fringe
+  ClearType rõ (R−B trải −119..+110, ~38% pixel mỗi phía); ảnh cũ cùng vị trí chỉ −7..0 (neutral tuyệt
+  đối) → Windows ClearType đang bật + fixup 19 đang chạy (không cần certutil/reg nữa).
+- Chữ **trong modal FB** (title, caption trên video, comment, composer) và **bubble Proton** vẫn
+  chroma ≈ 0 → vẫn grayscale.
+
+### Nguyên nhân (đã tra source)
+
+- Renderer tắt LCD text **theo từng layer**: `cc::PictureLayerImpl::ComputeLCDTextDisallowedReason()`
+  trả lý do khác `kNone` khi layer có `will-change: transform` (`kWillChangeTransform`), đang animate
+  transform (`kTransformAnimation`), `filter`/`backdrop-filter` (`kPixelOrColorEffect`), offset lẻ
+  (`kNonIntegral*`), hoặc nền/contents không đục (`kContentsNotOpaque`/`kBackgroundColorNotOpaque`)
+  → tile raster bằng grayscale AA, **là hành vi stock của mọi Chromium** (Chrome/Edge gốc y hệt).
+- Dialog FB trúng nhiều điều kiện: animation mở bằng transform, canh giữa `translate(-50%,-50%)`
+  (offset .5px), `will-change`, nền overlay có blur → cả cây dialog grayscale.
+- Toolbar/omnibox miễn nhiễm vì compositor UI hard-code `settings.layers_always_allowed_lcd_text = true`
+  (`ui/compositor/compositor.cc`, kèm comment "to match the previous behaviour with ContentLayers") —
+  đó là lý do cùng một ảnh, omnibox có fringe còn modal thì không.
+
+### Bằng chứng trên máy user (text-test.html, `artifacts/final/`)
+
+| Panel | Điều kiện | Kết quả đo |
+|---|---|---|
+| A + tab title | text thường | fringe ClearType: R−B ±179, 83% pixel có màu |
+| B | card trên nền `backdrop-filter` | chroma = **0.00** tuyệt đối (grayscale) |
+| C | card `will-change:transform, opacity` | chroma = **0.00** |
+| D | card `opacity:.999` | chroma = **0.00** |
+| E | card `scale(1.001)` | chroma = **0.00** |
+
+→ Cơ chế được chứng minh trực tiếp trên máy user; B/C/D/E đúng chữ ký của modal FB.
+
+### Fix (fixup `20-force-lcd-text-in-renderer.patch`, `third_party/blink` 1 file)
+
+- `blink::GenerateLayerTreeSettings()`: thêm `settings.layers_always_allowed_lcd_text = true;`
+  → mọi layer web content raster text bằng subpixel AA như UI compositor (không còn phụ thuộc
+  transform/opacity/backdrop).
+- Đánh đổi: layer có thể bị composite lệch nửa pixel / resample (lúc animation scale) → có thể thấy
+  thoáng viền màu trên chữ trong lúc modal mở/đóng; nếu thấy xấu → bỏ fixup (hoặc khôi phục
+  `chrome-baseline-fixup19.dll`), không có flag.
+
+### Artifacts
+
+| File | md5 mới (fixup 20) | baseline fixup 19 |
+|---|---|---|
+| `chrome.dll` | `3cea7cbb3db648b12a90fb8e7fdec01a` | `1d73fc5663231d9712a66c888140da97` (`artifacts/chrome-baseline-fixup19.dll`) |
+| `chrome-win7.zip` | `429deebc05ff45cf5ba3ecaec07db8c7` (205.035.063 B, 09:43) | `0d27759336166d46e65c61c1e7ce84f5` (`artifacts/chrome-win7-fixup19-baseline.zip`) |
+| `chrome-win7-setup.exe` | `fd856feb475aefbbd23e2a860bbe0d21` (135.370.613 B, 09:47) | `9abf8d76470205588170c1ebaf34da3e` |
+
+- `artifacts/final/` đã refresh (kèm `text-test.html`).
+- Trạng thái: build xong, chờ user A/B trên Win8.1 (modal FB + bong bóng Proton nét fringe? viền màu
+  lúc animation có khó chịu không?).

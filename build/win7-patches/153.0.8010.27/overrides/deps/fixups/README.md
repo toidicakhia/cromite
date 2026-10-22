@@ -26,6 +26,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `17-viewport-protection-hittest-fix.patch` | `third_party/blink` (1 file) | Map DIP coordinates by the device-emulation scale in the OOPIF hit test (`GetFrameSinkIdAtPoint`), so clicks land on cross-origin iframes (Proton Pass popup) while cromite's Viewport Protection is active. See below. |
 | `18-devtools-popup-caption-strip-fix.patch` | `chrome/browser/ui/views/frame` (1 file) | Don't report caption-button exclusions for popup-type windows with a native frame, removing the unpainted (black) strip below the caption of the undocked DevTools window on pre-Win10. See below. |
 | `19-restore-cleartype-font-rendering.patch` | `ui/gfx` (2 files) | Revert the force-grayscale half of cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch`: honor the system ClearType settings again (stock behavior), removing the soft/washed-out grayscale AA on all text. See below. |
+| `20-force-lcd-text-in-renderer.patch` | `third_party/blink` (1 file) | Force LCD (subpixel/ClearType) text rasterization in every renderer compositor layer (`layers_always_allowed_lcd_text`), so text in floating/composited content (Facebook post dialogs, extension bubbles, animated menus) is no longer rendered with blurry grayscale AA. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -172,6 +173,41 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 - Trade-off: re-enables the ClearType-tuner fingerprint bits cromite
   deliberately hides (subpixel geometry orientation, text gamma/contrast).
   To go back to cromite behavior, drop this fixup; there is no flag.
+
+### `20-force-lcd-text-in-renderer.patch` contents
+
+- After fixup 19 the general ClearType rendering was restored, but text in
+  floating/composited web content still rendered with grayscale AA. cc
+  disallows LCD text per layer in the renderer:
+  `PictureLayerImpl::ComputeLCDTextDisallowedReason()` returns
+  `kWillChangeTransform`, `kTransformAnimation`, `kPixelOrColorEffect`
+  (`filter`/`backdrop-filter`), `kNonIntegral*` or `kContentsNotOpaque` for
+  any layer whose contents may be resampled or drawn over a non-opaque
+  backdrop. Facebook's post dialog qualifies on several counts (entrance
+  `transform` animation, `will-change: transform`, `translate(-50%,-50%)`
+  centering with fractional offsets, backdrop-blurred overlay), so the whole
+  dialog subtree — title, caption, comments, composer — rasterizes grayscale.
+  This is stock Chromium behavior (Chrome/Edge render such text the same),
+  but on this build the contrast with the now-ClearType-rendered "normal"
+  text is very visible, and the user prefers crisp text.
+- Fix: set `settings.layers_always_allowed_lcd_text = true` in
+  `blink::GenerateLayerTreeSettings()` (renderer web-content settings). The
+  browser UI compositor already does exactly this
+  (`ui/compositor/compositor.cc`), which is why the omnibox/tab-strip text
+  had ClearType fringes all along; this extends the same behavior to web
+  content. Every text layer then rasterizes with subpixel AA regardless of
+  transform/opacity/backdrop conditions.
+- Verified empirically with a test page (`artifacts/final/text-test.html`):
+  panel A (plain text) and the toolbar tab title show ClearType fringes
+  (channel deltas ±179), while a card over a `backdrop-filter` background, a
+  `will-change: transform` card, an `opacity: .999` card and a `scale(1.001)`
+  card were all channel-neutral (pure grayscale) in the same screenshot —
+  the exact signature of the Facebook dialog text.
+- Trade-off: such layers may be composited with fractional offsets or
+  resampled (during scale animations), which can show faint color fringing on
+  text while a dialog animates; where Chromium previously chose safety over
+  sharpness. To go back to stock behavior, drop this fixup (or restore the
+  `chrome-baseline-fixup19.dll` artifact baked before it); there is no flag.
 
 ### `10-win7-runtime-fixes.patch` contents
 
