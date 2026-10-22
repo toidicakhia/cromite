@@ -27,6 +27,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `18-devtools-popup-caption-strip-fix.patch` | `chrome/browser/ui/views/frame` (1 file) | Don't report caption-button exclusions for popup-type windows with a native frame, removing the unpainted (black) strip below the caption of the undocked DevTools window on pre-Win10. See below. |
 | `19-restore-cleartype-font-rendering.patch` | `ui/gfx` (2 files) | Revert the force-grayscale half of cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch`: honor the system ClearType settings again (stock behavior), removing the soft/washed-out grayscale AA on all text. See below. |
 | `20-force-lcd-text-in-renderer.patch` | `third_party/blink` (1 file) | **REVERTED 2026-10-22** (user reported a YouTube problem while testing it; no causal link found; patch kept in `fixups/reverted/`). Force LCD (subpixel/ClearType) text rasterization in every renderer compositor layer (`layers_always_allowed_lcd_text`), so text in floating/composited content (Facebook post dialogs, extension bubbles, animated menus) is no longer rendered with blurry grayscale AA. See below. |
+| `21-allow-lcd-text-on-pixel-aligned-layers.patch` | `cc` (1 file) | Allow LCD text when a layer's raster translation is pixel-aligned (`PictureLayerImpl::ComputeLCDTextDisallowedReason`): static `will-change: transform` containers (YouTube sidebar/video titles, Facebook dialogs at rest) lose the grayscale AA without risking the resampling blur that forcing LCD text unconditionally can cause. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -260,3 +261,29 @@ For `11-*`/`12-*` run the same command from `third_party/dawn` /
 `third_party/webrtc` respectively using `-p1` (paths include the
 `third_party/<repo>/` prefix, so apply from `chromium/src` or strip one
 level).
+
+### `21-allow-lcd-text-on-pixel-aligned-layers.patch` contents
+
+- User follow-up after the fixup-20 revert: with fixup 20 (or 19) build, the
+  text of YouTube's sidebar and video titles still renders with grayscale AA
+  (measured on the user's screenshot: those regions are channel-neutral while
+  the search box / metadata lines have ClearType fringes). These elements sit
+  in `will-change: transform` containers, so `ComputeLCDTextDisallowedReason()`
+  returns `kWillChangeTransform` even though nothing is animating and the
+  layer is rastered pixel-exact.
+- Forcing LCD text for *all* layers (fixup 20) is too blunt: layers that are
+  actually resampled (transform animations, fractional offsets, filters) then
+  got sampled subpixel glyphs and looked blurry/noisy (the YouTube regression
+  the user hit). This patch instead reorders the checks: `kTransformAnimation`
+  stays unconditional; the will-change / effect-filter / fractional-offset
+  checks only apply when `raster_translation_aligns_pixels` is false. Layers
+  whose raster translation is pixel-aligned are drawn 1:1, so subpixel glyphs
+  cannot smear — they can safely use LCD text. Non-aligned layers keep the
+  stock grayscale pipeline, so the fixup-20 artifacts cannot come back.
+- Expected effects: static `will-change` containers (YouTube sidebar/titles,
+  Facebook dialogs at rest, extension bubbles) get ClearType; running
+  animations and non-opaque/scaled content stay grayscale.
+- Trade-off: during a purely translational animation the raster translation
+  can remain aligned, so LCD text may persist while the layer moves (Chromium
+  snaps the composited position to whole pixels; stock behavior would have
+  switched to grayscale). To go back to stock, drop this fixup.

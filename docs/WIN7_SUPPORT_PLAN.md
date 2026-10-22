@@ -811,3 +811,47 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
   `media_use_openh264=false`.
 - Cần user xác nhận triệu chứng YouTube cụ thể (video đen/lỗi/không tiếng/giật; chỉ live hay mọi
   video; kèm `chrome://media-internals` + `chrome://gpu`) trước khi kết luận patch nào.
+
+## 21. Fix chọn lọc chữ mờ trên YouTube (will-change containers) — LCD text cho layer pixel-aligned (2026-10-22)
+
+### Triệu chứng (user: "YouTube lại bị, phần chữ bị blur")
+
+- Sau fixup 20 (revert) + làm rõ: vấn đề là **chữ**, không phải video.
+- Đo trên screenshot YouTube của user: chữ sidebar ("Trang chủ", "Kênh đăng ký"),
+  tiêu đề video = **grayscale AA** (chroma ≈ 0, mờ nhẹ); chữ metadata / ô "Tìm kiếm" = đã
+  ClearType (R−B ±38..±51, 2 phía). → phần còn mờ là text trong layer `will-change: transform`
+  (YouTube dùng rất nhiều cho sidebar/lưới thumbnail).
+
+### Nguyên nhân
+
+- `cc::PictureLayerImpl::ComputeLCDTextDisallowedReason()` trả `kWillChangeTransform` chỉ vì node
+  transform có cờ will-change — **dù layer đang đứng yên và được raster đúng pixel**
+  (`raster_translation_aligns_pixels = true`, xem `CalculateRasterTranslation()` /
+  `PixelAlignmentOffset()`). Đây là hành vi stock nhưng với user (máy 1.0x DPI, mắt quen ClearType)
+  rất rõ.
+- Ép toàn bộ như fixup 20 quá thô: layer bị resample (animation/offset lẻ/filter) cũng bị raster
+  subpixel → compositor resample → **nhòe + nhiễu màu** (đúng phản hồi "YouTube bị" của user) → đã revert.
+
+### Fix (fixup `21-allow-lcd-text-on-pixel-aligned-layers.patch`, `cc` 1 file)
+
+- Đảo thứ tự kiểm tra trong `ComputeLCDTextDisallowedReason`:
+  - `kTransformAnimation` vẫn chặn vô điều kiện (đang chạy animation → grayscale, an toàn).
+  - `kWillChangeTransform` / `kPixelOrColorEffect` (filter/backdrop) / `kNonIntegral*` **chỉ xét khi
+    `raster_translation_aligns_pixels == false`**.
+  - `kContentsNotOpaque`/`kBackgroundColorNotOpaque` giữ nguyên (nền không đục vẫn grayscale).
+- Hệ quả: layer **vẽ 1:1 đúng pixel** (tĩnh, aligned) được raster subpixel → nét; layer có khả năng
+  bị resample giữ grayscale → không tái hiện lỗi nhòe của fixup 20.
+- Kỳ vọng: sidebar/tiêu đề YouTube nét; dialog FB lúc đứng yên nét; bubble extension nét; lúc
+  animation/scale vẫn grayscale như stock. Đánh đổi: animation tịnh tiến (translate) có thể giữ LCD
+  (Chromium snap vị trí layer về pixel nguyên).
+
+### Artifacts (thay md5 §20)
+
+| File | md5 mới (fixup 21) | baseline fixup 19 |
+|---|---|---|
+| `chrome.dll` | `d0eb122814acfc547a89465bfb257be3` | `1d73fc5663231d9712a66c888140da97` |
+| `chrome-win7.zip` | `267796338e68c398928d5786f40f4f2a` (205.031.138 B, 10:10) | `0d27759336166d46e65c61c1e7ce84f5` |
+| `chrome-win7-setup.exe` | `5ff128de890836a9fdc43eec9c8484a5` (135.287.666 B, 10:13) | `9abf8d76470205588170c1ebaf34da3e` |
+
+- Bản fixup 20 (ép toàn bộ) giữ ở `chrome-win7-lcdtext-experiment*.zip/exe` để tham chiếu.
+- Trạng thái: build xong, chờ user test YouTube + modal FB + bubble + text-test.html.
