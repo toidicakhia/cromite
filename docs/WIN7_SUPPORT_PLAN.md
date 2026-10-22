@@ -778,3 +778,36 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 - `artifacts/final/` đã refresh (kèm `text-test.html`).
 - Trạng thái: build xong, chờ user A/B trên Win8.1 (modal FB + bong bóng Proton nét fringe? viền màu
   lúc animation có khó chịu không?).
+
+### Kết quả test của user
+
+- Bubble Proton + text trang: có fringe ClearType rõ (số đo: sub-item xám R−B −89..+50; input text
+  −141..+97; so với trước fixup 20: bubble 0% phía dương) → fixup 20 hoạt động đúng thiết kế.
+- Tuy nhiên user báo "lần này YouTube lại bị" và yêu cầu **revert fixup 20 + điều tra toàn bộ
+  patches**.
+
+### REVERT (2026-10-22)
+
+- Tree: `git revert e912407f39` (commit `b7d6a01baf`). Patch chuyển sang
+  `overrides/deps/fixups/reverted/20-force-lcd-text-in-renderer.patch` (glob `fixups/*.patch`
+  không với tới thư mục con → build sau không còn áp dụng).
+- Artifacts: `chrome-win7.zip`/`chrome-win7-setup.exe` quay lại bản fixup 19 (md5 `0d277593...`);
+  bản fixup 20 đổi tên thành `chrome-win7-lcdtext-experiment.zip`/`-setup.exe`.
+- Không tìm thấy cơ chế nào nối flag raster hóa chữ với phát video; revert để có trạng thái sạch
+  điều tra YouTube. Muốn bật lại: chuyển patch về `fixups/`.
+
+### Điều tra YouTube (đang làm)
+
+- Audit nhóm patch đụng media/gpu — ứng viên chính:
+  - win7 `689e7aa6b9` (re-add) bật `kD3D11VideoDecoder` + VP9Profile2 + AV1 **ENABLED_BY_DEFAULT**
+    → D3D11 decode được thử trên Ironlake (driver 2010); §18 cho thấy driver fail đường cứng.
+  - win7 `26ba560951` (win7dep media/), `36b5c3f874` (gpu_mojo_media_client_win), `dedaa2707f`
+    (VEA Win7 — chỉ encode).
+  - cromite: `Enable-platform-aac-audio-and-h264-video` (đã xử lý ở §18),
+    `Media-fingerprinting-mitigations` (chỉ WebCodecs VideoDecoder → kPreferSoftware; không ảnh
+    hưởng MSE/YouTube), `AudioBuffer-AnalyserNode-fp-mitigations`, `Disable-DRM-media-origin-IDs`.
+- Cấu hình codec hiện tại: `proprietary_codecs=true`, `ffmpeg_branding="Chrome"`,
+  `enable_av1_decoder/dav1d=true`, platform AAC/H264 = false (ffmpeg SW còn),
+  `media_use_openh264=false`.
+- Cần user xác nhận triệu chứng YouTube cụ thể (video đen/lỗi/không tiếng/giật; chỉ live hay mọi
+  video; kèm `chrome://media-internals` + `chrome://gpu`) trước khi kết luận patch nào.

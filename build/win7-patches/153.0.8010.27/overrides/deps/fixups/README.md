@@ -26,7 +26,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `17-viewport-protection-hittest-fix.patch` | `third_party/blink` (1 file) | Map DIP coordinates by the device-emulation scale in the OOPIF hit test (`GetFrameSinkIdAtPoint`), so clicks land on cross-origin iframes (Proton Pass popup) while cromite's Viewport Protection is active. See below. |
 | `18-devtools-popup-caption-strip-fix.patch` | `chrome/browser/ui/views/frame` (1 file) | Don't report caption-button exclusions for popup-type windows with a native frame, removing the unpainted (black) strip below the caption of the undocked DevTools window on pre-Win10. See below. |
 | `19-restore-cleartype-font-rendering.patch` | `ui/gfx` (2 files) | Revert the force-grayscale half of cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch`: honor the system ClearType settings again (stock behavior), removing the soft/washed-out grayscale AA on all text. See below. |
-| `20-force-lcd-text-in-renderer.patch` | `third_party/blink` (1 file) | Force LCD (subpixel/ClearType) text rasterization in every renderer compositor layer (`layers_always_allowed_lcd_text`), so text in floating/composited content (Facebook post dialogs, extension bubbles, animated menus) is no longer rendered with blurry grayscale AA. See below. |
+| `20-force-lcd-text-in-renderer.patch` | `third_party/blink` (1 file) | **REVERTED 2026-10-22** (user reported a YouTube problem while testing it; no causal link found; patch kept in `fixups/reverted/`). Force LCD (subpixel/ClearType) text rasterization in every renderer compositor layer (`layers_always_allowed_lcd_text`), so text in floating/composited content (Facebook post dialogs, extension bubbles, animated menus) is no longer rendered with blurry grayscale AA. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -175,6 +175,14 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
   To go back to cromite behavior, drop this fixup; there is no flag.
 
 ### `20-force-lcd-text-in-renderer.patch` contents
+
+> **REVERTED (2026-10-22).** The user reported a YouTube problem shortly after
+> installing the build with this fixup and asked to revert it and audit the
+> patchset. No mechanism connecting a text-rasterization flag to media
+> playback was found; the build was reverted to be safe
+> (`git revert e912407f39`, patch moved to `fixups/reverted/`). Move the patch
+> back into `fixups/` to re-enable it once the YouTube issue is understood.
+> All findings below remain valid.
 
 - After fixup 19 the general ClearType rendering was restored, but text in
   floating/composited web content still rendered with grayscale AA. cc
