@@ -28,7 +28,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `19-restore-cleartype-font-rendering.patch` | `ui/gfx` (2 files) | Revert the force-grayscale half of cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch`: honor the system ClearType settings again (stock behavior), removing the soft/washed-out grayscale AA on all text. See below. |
 | `20-force-lcd-text-in-renderer.patch` | `third_party/blink` (1 file) | **REVERTED 2026-10-22** (user reported a YouTube problem while testing it; no causal link found; patch kept in `fixups/reverted/`). Force LCD (subpixel/ClearType) text rasterization in every renderer compositor layer (`layers_always_allowed_lcd_text`), so text in floating/composited content (Facebook post dialogs, extension bubbles, animated menus) is no longer rendered with blurry grayscale AA. See below. |
 | `21-allow-lcd-text-on-pixel-aligned-layers.patch` | `cc` (1 file) | Allow LCD text when a layer's raster translation is pixel-aligned (`PictureLayerImpl::ComputeLCDTextDisallowedReason`): static `will-change: transform` containers (YouTube sidebar/video titles, Facebook dialogs at rest) lose the grayscale AA without risking the resampling blur that forcing LCD text unconditionally can cause. See below. |
-| `22-allow-lcd-text-on-aligned-translucent-layers.patch` | `cc` (1 file) | Keep LCD text on pixel-aligned layers even when the layer background/contents are not opaque (rounded floating panels, extension bubbles, dropdown menus): drop the stock `kBackgroundColorNotOpaque`/`kContentsNotOpaque` fallback for aligned layers, which kept the Proton Pass "Save passkey" bubble on blurry grayscale AA. See below. |
+| `22-allow-lcd-text-on-aligned-translucent-layers.patch` | `cc` (1 file) | **REVERTED 2026-10-22** (user: "tệ hơn so với trước" — ClearType on the small purple/white bubble UI shows strong color fringes and much denser glyphs; stock Chromium gates these layers for a reason; patch kept in `fixups/reverted/`). Keep LCD text on pixel-aligned layers even when the layer background/contents are not opaque (rounded floating panels, extension bubbles, dropdown menus): drop the stock `kBackgroundColorNotOpaque`/`kContentsNotOpaque` fallback for aligned layers, which kept the Proton Pass "Save passkey" bubble on blurry grayscale AA. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -313,3 +313,15 @@ level).
 - Diagnostic value: if the bubble is still grayscale after this fixup, its
   layer is not pixel-aligned (fractional position or animation), and only a
   runtime probe of the disallow reason can tell us why.
+
+- **REVERTED 2026-10-22**: built and tested; the bubble text did switch to
+  LCD (measured on the user's screenshot: correct red/blue fringe orientation,
+  1-px fringes, no resampling), but the user judged the result *worse* than
+  the grayscale state: white-on-purple button labels ("Update") and small
+  purple/white text over the near-white card show strong colored fringes, and
+  subpixel gamma makes the thin fonts much denser/darker than the smooth
+  grayscale look. The stock `kBackgroundColorNotOpaque`/`kContentsNotOpaque`
+  gates exist exactly to avoid this on translucent/rounded panels, so the
+  fixup was reverted (tree back to the fixup-21 state, chrome.dll md5
+  `d0eb122814acfc547a89465bfb257be3`) and the patch moved to
+  `fixups/reverted/`.

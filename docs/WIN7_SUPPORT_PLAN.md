@@ -888,3 +888,26 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 - Nếu bubble vẫn grayscale sau fixup 22 → layer bubble **không aligned** (vị trí lẻ pixel /
   đang animation) → cần fixup 23 probe (log LCD reason) mới kết luận được.
 - Trạng thái: build xong, chờ user test bubble + YouTube + text-test.
+
+### Kết quả & revert (cùng ngày)
+
+- User báo: **"Tệ hơn so với trước"** kèm ảnh bubble mới (`r133850.png`).
+- Đo ảnh: fixup 22 **đã bật ClearType thật** cho bubble — viền màu đúng hướng (C ở mép trái glyph,
+  R ở mép phải), viền rộng 1px (không resample), R−B tới ±117. Nhưng so ảnh cũ/mới phóng 4x:
+  chữ **trắng trên nút tím** và chữ **tím trên card trắng** nhỏ → viền đỏ/lam rất rõ; gamma
+  subpixel làm glyph **dày/đậm hơn hẳn** so với grayscale mượt trước đó (nét run tăng 2→4px).
+- Kết luận: đây chính là lý do stock Chromium chặn LCD trên panel không đục/bo góc
+  (`kBackgroundColorNotOpaque`/`kContentsNotOpaque`) — không phải bug. Ép LCD ở UI nhỏ nhiều màu
+  cho kết quả tệ hơn grayscale.
+- **Đã revert fixup 22** (tree `d4ffe11ec7`; patch chuyển vào `fixups/reverted/`), build lại:
+  `chrome.dll` md5 `d0eb122814acfc547a89465bfb257be3` — **trùng khớp tuyệt đối với build fixup 21**.
+
+| File | md5 (fixup 21 khôi phục, 2026-10-22 11:37) |
+|---|---|
+| `chrome.dll` | `d0eb122814acfc547a89465bfb257be3` |
+| `chrome-win7.zip` | `6c1849f828b4eb912c4cc486ab30b358` (205.031.138 B, 11:33) |
+| `chrome-win7-setup.exe` | `672dd59ca470fb1bd921e064ed7386d2` (135.321.008 B, 11:37) |
+
+- Bản fixup 22 giữ tham chiếu ở `chrome-win7-fixup22-lcdbubble-experiment*.zip/exe`.
+- Trạng thái bubble Proton: giữ grayscale (mượt) theo stock; để nét hơn thì chỉ còn cách ép LCD —
+  đã chứng minh là tệ hơn, nên đóng hướng này.
