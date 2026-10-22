@@ -1,0 +1,28 @@
+diff --git a/ui/gfx/font_util_win.cc b/ui/gfx/font_util_win.cc
+index cb6b2ca814..0194fb7881 100644
+--- a/ui/gfx/font_util_win.cc
++++ b/ui/gfx/font_util_win.cc
+@@ -47,6 +47,23 @@ TextParameters GetTextParameters() {
+         }
+       }
+     }
++
++    // [WIN7] Optional user override of the text gamma/contrast, so the LCD
++    // text weight can be tuned without rebuilding the browser:
++    //   HKCU\Software\Cromite\FontTuning\Contrast  (DWORD, 0..100 -> 0.0..1.0)
++    //   HKCU\Software\Cromite\FontTuning\Gamma     (DWORD, 0..300 -> 0.0..3.0)
++    base::win::RegKey tuning_key(HKEY_CURRENT_USER,
++                                 L"Software\\Cromite\\FontTuning", KEY_READ);
++    DWORD tuning_value = 0;
++    if (tuning_key.Valid() &&
++        tuning_key.ReadValueDW(L"Contrast", &tuning_value) == ERROR_SUCCESS) {
++      text_parameters.contrast =
++          FontUtilWin::ClampContrast(tuning_value / 100.0f);
++    }
++    if (tuning_key.Valid() &&
++        tuning_key.ReadValueDW(L"Gamma", &tuning_value) == ERROR_SUCCESS) {
++      text_parameters.gamma = FontUtilWin::ClampGamma(tuning_value / 100.0f);
++    }
+   });
+   return text_parameters;
+ }

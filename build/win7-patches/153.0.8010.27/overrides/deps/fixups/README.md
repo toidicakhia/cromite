@@ -355,3 +355,44 @@ level).
 - If a combination is accepted, a follow-up fixup will hardcode the values
   (and fixup 22 may be re-applied permanently); otherwise the main build
   keeps fixup 21 + this inert propagation.
+
+### `24-lcd-text-contrast-registry-tuning.patch` contents
+
+- Follow-up to the user's "no ClearType tuning key" report and the observation
+  that the upstream `--text-gamma` / `--text-contrast` switches had **no visible
+  effect** (all three test combinations looked identical).
+- What the code actually does (traced in the 153 tree):
+  - `SkSurfaceProps::textContrast()/textGamma()` are the only knobs that
+    influence how Skia weights glyph coverage. They reach the glyph masks
+    through `SkScalerContext::MakeRecAndEffects` (`rec->setDeviceGamma()` /
+    `rec->setContrast()`) and are applied by the **pre-blend LUT**
+    (`SkMaskGamma`): `SkScalerContext_win_dw.cpp` applies it to both the
+    grayscale (`GrayscaleToA8`) and the ClearType (`RGBToLcd16`) mask paths.
+  - Windows builds with `SK_GAMMA_CONTRAST=1.0` (`skia/BUILD.gn`, `is_win`
+    branch) - the **maximum** artificial contrast. Skia's own comment in
+    `SkTypes.h` says: "With higher values lcd fringing is worse and the
+    smoothing effect of partial coverage is diminished", and Linux ships
+    `0.2` / gamma `1.2` instead. That is why Windows Chromium text (and
+    especially LCD text on saturated backgrounds) looks heavier than the
+    same site in a Linux build.
+  - The values are produced in the browser process
+    (`ui/gfx/font_render_params_win.cc` -> `FontUtilWin::GetTextParameters()`)
+    and shipped to the GPU process over
+    `GpuHostImpl::InitFontRenderParams` -> `VizMainImpl::SetRenderParams` ->
+    `LegacyDisplayGlobals::SetCachedParams`, and to the renderer through
+    `RendererPreferences`. The upstream command-line switches are read in
+    `skia/ext/legacy_display_globals.cc` (`GetSkSurfaceProps()`), i.e. they
+    only work in a process whose command line carries them - which is why
+    fixup 23 forwards them to the GPU process.
+  - On a machine without `HKCU\Software\Microsoft\Avalon.Graphics\<display>`
+    (i.e. ClearType never tuned) Chromium falls back to the build defaults
+    (contrast 1.0, gamma 0.0 = sRGB), so there was nothing to tune with.
+- This patch adds an optional registry override in
+  `ui/gfx/font_util_win.cc`, read once per process:
+  - `HKCU\Software\Cromite\FontTuning\Contrast` (DWORD, 0..100 -> 0.0..1.0)
+  - `HKCU\Software\Cromite\FontTuning\Gamma` (DWORD, 0..300 -> 0.0..3.0)
+  With no key present the behaviour is byte-identical to stock Chromium.
+  Because the value is read in the browser process and propagated over the
+  existing `FontRenderParams` IPC, it applies to the GPU raster path as well
+  and needs no command line switch (no risk of a running Chrome instance
+  swallowing the flags) - only a browser restart.

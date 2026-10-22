@@ -991,3 +991,69 @@ Sau khi fixup 22 bị revert ("tệ hơn"), user hỏi: **có thể sửa đư�
 
 ### Trạng thái
 - Đã build + đóng gói cả 2 bản, tài liệu + patch + commit repo. Chờ user sweep và trả lời.
+
+## 24. Điều tra "switch gamma/contrast không có tác dụng" → knob thật: SkMaskGamma pre-blend + override registry (2026-10-22)
+
+### Phản hồi của user
+1. `reg query "HKCU\SOFTWARE\Microsoft\Avalon.Graphics" /s` → **không có key**
+   (ClearType chưa từng được tune ⇒ Chromium rơi về mặc định build).
+2. Cả 3 tổ hợp `--text-gamma/--text-contrast` → **y hệt nhau**.
+3. Bản main cũng vậy.
+
+### Truy nguyên (đọc code 153)
+- **Cơ chế thật của độ đậm/viền của chữ LCD**: `SkSurfaceProps::textContrast()` /
+  `textGamma()` → `SkScalerContext::MakeRecAndEffects` (`setDeviceGamma`/`setContrast`)
+  → **pre-blend LUT** (`SkMaskGamma`) áp vào mask glyph. Áp cho **cả** grayscale
+  (`GrayscaleToA8`) và LCD (`RGBToLcd16`) — `SkScalerContext_win_dw.cpp:2161+`.
+- **Giá trị mặc định của Windows**: `skia/BUILD.gn` nhánh `is_win` đặt
+  `SK_GAMMA_CONTRAST=1.0` (= **contrast tối đa**) + `SK_GAMMA_SRGB`; Skia tự
+  ghi chú trong `SkTypes.h`: *"With higher values lcd fringing is worse and the
+  smoothing effect of partial coverage is diminished"*; Linux dùng `0.2`/gamma
+  `1.2`, Android `1.4`/`0.0`, macOS `0.0`. ⇒ Chữ LCD trên Windows nặng hơn
+  bản Linux (đúng cảm giác "chữ đậm/viền rõ" mà user thấy ở bubble).
+- **Đường đi giá trị**: browser (`font_render_params_win.cc` →
+  `FontUtilWin::GetTextParameters()`) → `GpuHostImpl::InitFontRenderParams` →
+  `VizMainImpl::SetRenderParams` → `LegacyDisplayGlobals::SetCachedParams`
+  (GPU process) + `RendererPreferences` (renderer). Switch
+  `--text-gamma/--text-contrast` chỉ được đọc trong
+  `skia/ext/legacy_display_globals.cc` (`GetSkSurfaceProps`) ⇒ **chỉ có tác
+  dụng ở process có switch trong command line** ⇒ fixup 23 forward sang GPU
+  process; nếu không có switch thì vô hiệu.
+- **Vì sao 3 tổ hợp y hệt nhau**: (a) Windows mặc định không có key
+  ClearType nên không có gì để "tune"; (b) nếu Chrome đang chạy, launch lại
+  bằng shortcut có switch sẽ bị singleton bỏ qua ⇒ **3 lần thử biến thành 1
+  lần thử thật**; (c) gamma/contrast chỉ ảnh hưởng *weight/contrast của
+  coverage*, không xoá được viền màu của subpixel AA.
+
+### Fix (fixup `24-lcd-text-contrast-registry-tuning.patch`, `ui/gfx` 1 file)
+- `ui/gfx/font_util_win.cc`: đọc thêm (1 lần/process) các giá trị tuỳ chọn
+  `HKCU\Software\Cromite\FontTuning\Contrast` (0..100 → 0.0..1.0) và
+  `\Gamma` (0..300 → 0.0..3.0). Không có key ⇒ **hành vi y hệt Chromium gốc**.
+- Vì đọc ở browser process và đi qua kênh `FontRenderParams` sẵn có nên áp
+  cho **cả GPU raster** lẫn renderer; **không cần command line** (tránh rủi
+  ro singleton nuốt flag) — chỉ cần khởi động lại browser.
+
+### Artifacts (2026-10-22 14:3x–14:4x)
+| Bản | File | md5 |
+|---|---|---|
+| main (fixup 21 + 23 + 24) | `chrome.dll` | `54da2f278e1b208ace919dff5545f16f` (14:38) |
+| main | `chrome-win.zip` | `036b21433d5ff1be2e31e1569673681f` (205.032.933 B) |
+| main | `chrome-win7-setup.exe` | `d969db17b4f76e024052ca57fd084461` (135.277.184 B) |
+| thử (21 + 22 + 23 + 24, bubble LCD) | `chrome-win7-lcdtune-registry-experiment.zip` | `77a0e37b706c4d16d30f9f3612e608e5` (205.032.585 B) |
+| thử | `chrome-win7-lcdtune-registry-experiment-setup.exe` | `2f163df67c7800a8147c9f9ddd4f7167` (135.298.523 B) |
+| thử (21 + 22 + 23, contrast hard-code 0.5) | `chrome-win7-lcd-bubble-contrast05-experiment.zip` | `f5b0648641f2554147aa07d4a4768c6a` (205.030.093 B) |
+| thử | `chrome-win7-lcd-bubble-contrast05-experiment-setup.exe` | `5c684b14059f5632c6bb018ea28c7880` (135.299.965 B) |
+
+### Cách dùng (user)
+```
+reg add "HKCU\Software\Cromite\FontTuning" /v Contrast /t REG_DWORD /d 50 /f
+reg add "HKCU\Software\Cromite\FontTuning" /v Gamma    /t REG_DWORD /d 140 /f
+```
+(đóng hết Chrome rồi mở lại; xoá key = về mặc định)
+- Gợi ý thử: Contrast 50 (0.5) hoặc 20 (0.2, như Linux) + Gamma 120/140.
+- Bản main: chỉ chữ LCD trên trang web đổi; bubble vẫn grayscale.
+- Bản thử: bubble cũng LCD ⇒ đánh giá được "nét mà không nặng".
+
+### Trạng thái
+- Đã build cả main và 2 bản thử; fixup 24 + README + plan §24 commit repo.
+- Chờ user thử registry override.
