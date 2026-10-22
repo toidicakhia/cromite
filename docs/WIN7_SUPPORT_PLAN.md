@@ -666,3 +666,58 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 | `chrome-win7-setup.exe` | `f3efdf1a2cdfaf26bc87f18303fc53e3` (135.362.514 B, 15:05) | `b0f3d9b4a5cd0bf7f1f2bceed2932b9d` |
 
 - `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
+
+## 19. Fix chữ mờ trong modal/popup — khôi phục ClearType (font rendering hệ thống) (2026-10-22)
+
+### Triệu chứng (user báo trên Win8.1, kèm screenshot Facebook post dialog)
+
+- Chữ trong modal/popup (bài viết Facebook) mờ/mềm; user tự đánh giá "sai thiết kế" so với Chrome thường.
+- Nền sau modal bị blur là **thiết kế của Facebook** (`backdrop-filter` trong keyframes dialog của fb —
+  xác nhận trong `fb1.css`), không phải bug.
+
+### Chẩn đoán
+
+- Pixel forensics screenshot: **toàn bộ pixel chữ trong modal neutral RGB** (R≈G≈B, không có fringe
+  ClearType) → text đang được render bằng **grayscale antialiasing**.
+- Chuỗi nhân quả trong code: `gfx::FontRenderParams` (browser) →
+  `renderer_preferences_.subpixel_rendering` → `WebViewImpl::UpdateFontRenderingFromRendererPrefs()`
+  → `WebFontRendering::SetLCDTextEnabled()` → `FontCache::lcd_text_enabled_` →
+  `FontPlatformData::QuerySystemForRenderStyle()` → `CreateSkFont()` chỉ bật
+  `kSubpixelAntiAlias` khi subpixel rendering ≠ NONE.
+- `ui/gfx/font_render_params_win.cc` (bản build) bị cromite ép `SUBPIXEL_RENDERING_NONE` toàn cục:
+  `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch` thêm 3 override `if ((true))`
+  (`GetSubpixelRenderingGeometry`, `GetTextSettingsRegistryKey`, nhánh `GetParams`).
+  Trên máy bật ClearType (mặc định Win7/8/8.1), Chrome gốc render subpixel (fringe màu) nét hơn hẳn
+  grayscale AA → user thấy "chữ mờ" (rõ nhất trong modal vì nền đã bị blur).
+
+### Fix (fixup `19-restore-cleartype-font-rendering.patch`, `ui/gfx` 2 file)
+
+- Bỏ 3 override `if ((true))`, trả về hành vi stock Chrome: đọc `SPI_GETFONTSMOOTHING` +
+  `SPI_GETFONTSMOOTHINGTYPE` (ClearType), geometry từ registry `PixelStructure` /
+  `SPI_GETFONTSMOOTHINGORIENTATION`; mở lại `GetTextSettingsRegistryKey` (kèm gamma/contrast tuner).
+- Giữ nguyên tinh chỉnh win7 `win::IsDirectWriteEnabled()` trong cùng block (Win7 GDI không subpixel
+  positioning).
+
+### Xác minh
+
+- Diff bitcode LLVM của `font_render_params_win.obj` (clang 24 `-x ir`) chứa đúng chuỗi stock:
+  `SystemParametersInfoW(74)` (SPI_GETFONTSMOOTHING) → `IsDirectWriteEnabled()` →
+  `SystemParametersInfoW(8202)` (SPI_GETFONTSMOOTHINGTYPE) `== FE_FONTSMOOTHINGCLEARTYPE` →
+  `GetTextSettingsRegistryKey` + `ReadValueDW("PixelStructure")` →
+  `SystemParametersInfoW(8210)` (SPI_GETFONTSMOOTHINGORIENTATION).
+- Build incremental OK (2 obj + relink), zip + installer đóng gói lại.
+
+### Artifacts (thay thế md5 ở §18)
+
+| File | md5 mới | md5 cũ (§18) |
+|---|---|---|
+| `chrome.dll` | `1d73fc5663231d9712a66c888140da97` | `542c4bd71519b3b8ee6f60187095c8ca` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `0d27759336166d46e65c61c1e7ce84f5` (205.033.025 B, 06:07) | `086f0fcb24df6eff452182941706ad34` |
+| `chrome-win7-setup.exe` | `9abf8d76470205588170c1ebaf34da3e` (135.321.216 B, 06:14) | `f3efdf1a2cdfaf26bc87f18303fc53e3` |
+
+- `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
+- Đánh đổi: mở lại các fingerprint bit của ClearType tuner (hướng, gamma/contrast) mà cromite cố che;
+  muốn quay lại hành vi cromite thì bỏ fixup này (không có flag).
+- Trạng thái: build xong, chờ user xác nhận trên Win8.1 (so sánh chữ trong modal trước/sau).

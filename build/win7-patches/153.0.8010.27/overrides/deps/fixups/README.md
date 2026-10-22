@@ -25,6 +25,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `16-suppress-unsupported-os-warning.patch` | `chrome/browser/ui/startup` (1 file) | Default the `browser.suppress_unsupported_os_warning` pref to `true`, hiding the "To get future Cromite updates, you'll need Windows 10 or later" infobar on Win7/8/8.1. See below. |
 | `17-viewport-protection-hittest-fix.patch` | `third_party/blink` (1 file) | Map DIP coordinates by the device-emulation scale in the OOPIF hit test (`GetFrameSinkIdAtPoint`), so clicks land on cross-origin iframes (Proton Pass popup) while cromite's Viewport Protection is active. See below. |
 | `18-devtools-popup-caption-strip-fix.patch` | `chrome/browser/ui/views/frame` (1 file) | Don't report caption-button exclusions for popup-type windows with a native frame, removing the unpainted (black) strip below the caption of the undocked DevTools window on pre-Win10. See below. |
+| `19-restore-cleartype-font-rendering.patch` | `ui/gfx` (2 files) | Revert the force-grayscale half of cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch`: honor the system ClearType settings again (stock behavior), removing the soft/washed-out grayscale AA on all text. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -139,6 +140,38 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 - Verified on Win8.1 (undocked DevTools): black strip gone, dock/undock,
   zoom, resize and panel switching behave normally; regular browser windows
   unaffected.
+
+### `19-restore-cleartype-font-rendering.patch` contents
+
+- cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch` forces
+  `SUBPIXEL_RENDERING_NONE` with three `if ((true))` overrides:
+  an early return in `GetSubpixelRenderingGeometry()`, an early return in
+  `FontUtilWin::GetTextSettingsRegistryKey()`, and an unconditional branch in
+  `CachedFontRenderParams::GetParams()` that ignores
+  `SystemParametersInfo(SPI_GETFONTSMOOTHING)`.
+- Blink renderers drive their font style from the browser's
+  `gfx::FontRenderParams`: `renderer_preferences_.subpixel_rendering`
+  (`WebViewImpl::UpdateFontRenderingFromRendererPrefs()`) →
+  `WebFontRendering::SetLCDTextEnabled()` → `FontCache::lcd_text_enabled_` →
+  `FontPlatformData::QuerySystemForRenderStyle()` →
+  `CreateSkFont()` sets `kSubpixelAntiAlias` only if subpixel rendering is
+  not NONE. With the forced NONE every glyph is drawn with grayscale AA, so
+  on ClearType-enabled systems (the Win7/8/8.1 default) all browser UI and
+  web content text is perceptibly softer than stock Chrome (user report: the
+  text inside the Facebook post dialog on Win8.1 looked blurry; screenshot
+  forensics: all glyph pixels are channel-neutral, i.e. no ClearType
+  fringes).
+- Fix: drop the three `if ((true))` overrides. `GetParams()` honors
+  `SPI_GETFONTSMOOTHING` + `SPI_GETFONTSMOOTHINGTYPE` (ClearType) again,
+  `GetSubpixelRenderingGeometry()` reads the per-display
+  `PixelStructure`/`SPI_GETFONTSMOOTHINGORIENTATION` registry values, and
+  `GetTextSettingsRegistryKey()` is re-enabled (also restores the ClearType
+  tuner gamma/contrast read via `kUseGammaContrastRegistrySettings`). The
+  win7 patchset's `win::IsDirectWriteEnabled()` tweak in the same block is
+  kept (GDI fallback on Win7 stays without subpixel positioning).
+- Trade-off: re-enables the ClearType-tuner fingerprint bits cromite
+  deliberately hides (subpixel geometry orientation, text gamma/contrast).
+  To go back to cromite behavior, drop this fixup; there is no flag.
 
 ### `10-win7-runtime-fixes.patch` contents
 
