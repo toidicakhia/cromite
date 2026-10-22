@@ -932,3 +932,62 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
    + viền màu đỏ/lam đúng hướng. Trên nền bão hoà (chữ trắng/nút tím) và chữ nhỏ, hai hiệu ứng này
    rõ nhất → grayscale mượt nhìn tốt hơn. Đây là bản chất subpixel, không có knob để "LCD mà không
    đậm/không viền" ⇒ stock gates là đúng; đóng hướng này.
+
+## 23. "Có thể sửa được không" — phơi switch gamma/contrast ra GPU process + bản thử bubble LCD chỉnh được độ đậm (2026-10-22)
+
+### Câu hỏi của user
+Sau khi fixup 22 bị revert ("tệ hơn"), user hỏi: **có thể sửa được không?**
+
+### Phát hiện quan trọng (đường đi của gamma/contrast — nút chỉnh "độ đậm/viền")
+- Chữ LCD được raster bằng `SkSurfaceProps` dựng tại
+  `gpu/command_buffer/service/raster_decoder.cc:2868-2872`: LCD bật →
+  `skia::LegacyDisplayGlobals::GetSkSurfaceProps(flags)` — props mang theo
+  `text_contrast`/`text_gamma`, hai giá trị này điều khiển **độ đậm + độ rõ viền** của subpixel text.
+- Trên Windows, nguồn giá trị là `ui/gfx/font_render_params_win.cc` (`CachedFontRenderParams`):
+  - Feature `kUseGammaContrastRegistrySettings` **mặc định BẬT** (`ui/base/ui_base_features.cc:461`).
+  - Nếu key `HKCU\SOFTWARE\Microsoft\Avalon.Graphics\<DISPLAY>` tồn tại → đọc gamma/contrast qua
+    DirectWrite (`FontUtilWin::GetTextParameters`, `IDWriteRenderingParams`) = theo ClearType tuner của user.
+  - Nếu key không tồn tại → mặc định build: `SK_GAMMA_EXPONENT=0.0` (SRGB) + `SK_GAMMA_CONTRAST=1.0`
+    (nhánh `is_win` trong `skia/BUILD.gn`) — **contrast cao nhất, chữ dày/viền mạnh nhất**
+    (`SkTypes.h`: "With higher values lcd fringing is worse...").
+- Upstream có 2 switch test `--text-gamma`/`--text-contrast` (`skia/ext/switches.cc`), được
+  `LegacyDisplayGlobals::GetSkSurfaceProps()` ưu tiên đọc từ command line — nhưng upstream chỉ
+  propagate chúng tới **renderer** (`content/browser/renderer_host/render_process_host_impl.cc:4016-4017`),
+  **không tới GPU process** (`gpu_process_host.cc` → `kSwitchNames`). Trên máy user raster GPU nằm ở
+  GPU process ⇒ trước fixup này switch **không có tác dụng** (test sẽ "không thấy gì đổi").
+- Kết luận: phần "nét" đã chứng minh sửa được (fixup 22); phần "tệ hơn" là do **độ đậm/viền của gamma
+  subpixel** — và đây LÀ nút chỉnh được (registry tuner hoặc switch), chưa từng được sweep đúng cách.
+
+### Fix (fixup `23-propagate-text-gamma-contrast-switches.patch`, `content` 1 file)
+- `content/browser/gpu/gpu_process_host.cc`: thêm `#include "skia/ext/switches.h"` + 2 entry
+  `switches::kTextContrast`, `switches::kTextGamma` vào `kSwitchNames` (nhánh `IS_WIN`).
+- Không đổi hành vi mặc định (không truyền switch = y hệt trước); mục đích duy nhất là cho phép
+  **sweep gamma/contrast lúc chạy** để tìm mức chữ LCD ưng ý trước khi chốt cứng.
+
+### Artifacts (2026-10-22 12:2x)
+- Main = fixup 21 + 23 (hành vi mặc định không đổi; chỉ khác mã có thêm đường switch):
+  - `chrome.dll` = `8068267c7928216279a29e743491619d` (12:29) — khác `d0eb1228` của build fixup-21
+    thuần vì có thêm code fixup 23 (mặc định vẫn nguyên).
+  - `chrome-win.zip` = `c78c9bff2ab63f406dba8c9620285e2e` (205.029.300 B).
+  - `chrome-win7-setup.exe` = `6c21b2aa3da914453348b387128627af` (135.275.887 B).
+- Bản thử = fixup 21 + 22 + 23 (bubble cũng dùng LCD + đổi được độ đậm):
+  - `chrome-win7-lcdbubble-tunable-experiment.zip` = `358cac32ca5be1c9342a757ed97dd88c`
+    (205.030.093 B; dll `3812bcb0d93e0ea9d6ba4d02b25b479b`).
+  - `chrome-win7-lcdbubble-tunable-experiment-setup.exe` = `cb8755904727e6bd4cfd429d9f8b1443`
+    (135.299.965 B).
+- `artifacts/final/` cập nhật = main mới (21+23).
+
+### Hướng dẫn test (đã gửi user)
+- Chẩn đoán registry: `reg query "HKCU\SOFTWARE\Microsoft\Avalon.Graphics" /s` — nếu có key
+  → Chromium đang dùng gamma/contrast theo tuner (báo giá trị); nếu không có → đang dùng mặc định
+  gamma 0 / contrast 1.0 (đậm + viền tối đa).
+- Sweep bản thử (bubble + trang) bằng shortcut `chrome.exe` kèm cặp switch:
+  - `--text-gamma=1.4 --text-contrast=0.5` (thử trước; 0.5 là "good compromise" theo Skia)
+  - `--text-gamma=1.2 --text-contrast=0.2`
+  - `--text-gamma=1.0 --text-contrast=0.5`
+  - và không cờ (hiện trạng) để so; bản main cũng sweep được nhưng chỉ ảnh hưởng trang web.
+- Nếu có tổ hợp ưng ý: chốt cứng vào build (fixup mới, không cần switch) + quyết định giữ/bỏ 22.
+  Nếu không: đóng hướng LCD bubble, main giữ 21+23 (hoặc bỏ luôn 23 nếu thấy vô ích).
+
+### Trạng thái
+- Đã build + đóng gói cả 2 bản, tài liệu + patch + commit repo. Chờ user sweep và trả lời.

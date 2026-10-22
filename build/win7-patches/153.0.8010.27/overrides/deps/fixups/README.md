@@ -325,3 +325,33 @@ level).
   fixup was reverted (tree back to the fixup-21 state, chrome.dll md5
   `d0eb122814acfc547a89465bfb257be3`) and the patch moved to
   `fixups/reverted/`.
+
+### `23-propagate-text-gamma-contrast-switches.patch` contents
+
+- Follow-up to the fixup-22 revert and the user question "can it still be
+  fixed?": the density/fringing of LCD text is controlled by the
+  `SkSurfaceProps` `text_contrast`/`text_gamma` used when rasterizing
+  (`gpu/command_buffer/service/raster_decoder.cc:2868-2872`,
+  `skia::LegacyDisplayGlobals::GetSkSurfaceProps`). On Windows those values
+  come from `ui/gfx/font_render_params_win.cc`: the Windows ClearType tuner
+  values when `HKCU\SOFTWARE\Microsoft\Avalon.Graphics\<DISPLAY>` exists
+  (feature `kUseGammaContrastRegistrySettings`, default on), otherwise the
+  build defaults `SK_GAMMA_EXPONENT=0.0` (SRGB) + `SK_GAMMA_CONTRAST=1.0`
+  (skia/BUILD.gn `is_win`; Skia's SkTypes.h notes "with higher values lcd
+  fringing is worse and the smoothing effect of partial coverage is
+  diminished") -- the densest/most fringed setting.
+- Upstream ships two testing switches, `--text-gamma`/`--text-contrast`
+  (`skia/ext/switches.cc`), which `LegacyDisplayGlobals::GetSkSurfaceProps()`
+  reads with priority, but upstream only propagates them to the renderer
+  process (`content/browser/renderer_host/render_process_host_impl.cc:4016-4017`)
+  and not to the GPU process (`content/browser/gpu/gpu_process_host.cc`
+  `kSwitchNames`) -- and on this build GPU raster happens in the GPU process,
+  so the switches previously had no effect.
+- This patch adds `skia/ext/switches.h` and the two switch names to the
+  GPU-process `kSwitchNames` allowlist under `BUILDFLAG(IS_WIN)`. Default
+  rendering is unchanged unless the switches are passed; it enables runtime
+  sweeping of LCD gamma/contrast (for normal pages always, and together with
+  a re-applied fixup 22 for translucent panels like the Proton bubble).
+- If a combination is accepted, a follow-up fixup will hardcode the values
+  (and fixup 22 may be re-applied permanently); otherwise the main build
+  keeps fixup 21 + this inert propagation.

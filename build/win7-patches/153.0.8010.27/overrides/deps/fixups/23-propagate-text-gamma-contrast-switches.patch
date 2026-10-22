@@ -1,0 +1,21 @@
+diff --git a/content/browser/gpu/gpu_process_host.cc b/content/browser/gpu/gpu_process_host.cc
+index 4dc2ceb7d5..9c797a03d2 100644
+--- a/content/browser/gpu/gpu_process_host.cc
++++ b/content/browser/gpu/gpu_process_host.cc
+@@ -90,6 +90,7 @@
+ #include "services/webnn/buildflags.h"
+ #include "services/webnn/webnn_switches.h"
+ #include "skia/buildflags.h"
++#include "skia/ext/switches.h"
+ #include "third_party/blink/public/common/tokens/tokens.h"
+ #include "ui/base/ui_base_features.h"
+ #include "ui/base/ui_base_switches.h"
+@@ -260,6 +261,8 @@ static const char* const kSwitchNames[] = {
+     sandbox::policy::switches::kNoSandbox,
+ #if BUILDFLAG(IS_WIN)
+     sandbox::policy::switches::kAllowThirdPartyModules,
++    switches::kTextContrast,
++    switches::kTextGamma,
+ #endif
+ #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
+     switches::kDisableDevShmUsage,
