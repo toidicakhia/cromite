@@ -855,3 +855,36 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 
 - Bản fixup 20 (ép toàn bộ) giữ ở `chrome-win7-lcdtext-experiment*.zip/exe` để tham chiếu.
 - Trạng thái: build xong, chờ user test YouTube + modal FB + bubble + text-test.html.
+
+## 22. Chữ nét trên panel trong suốt (bubble Proton Pass) — LCD text cho layer aligned không đục (2026-10-22)
+
+### Triệu chứng (user: ảnh bubble "Save passkey")
+
+- Đo trên screenshot `r133615.png`: toàn bộ chữ trong bubble ("Save passkey", "webauthn.io",
+  "123454", "Create new login") = **grayscale AA 100%** (0% pixel lệch khỏi đường blend
+  core↔nền; nền blob xanh/tím mờ = thiết kế của trang, không phải lỗi code).
+- Bubble là OOPIF của extension (đường web content) → chịu `ComputeLCDTextDisallowedReason`;
+  fixup 21 vẫn để grayscale vì cổng opaque (`kBackgroundColorNotOpaque`/`kContentsNotOpaque`) —
+  panel bo góc/nội dung không đục (đã đối chiếu: đây là cổng duy nhất còn lại khớp với ảnh đo).
+
+### Fix (fixup `22-allow-lcd-text-on-aligned-translucent-layers.patch`, `cc` 1 file)
+
+- Với layer **pixel-aligned**: bỏ 2 cổng opaque → trả `kNone` (LCD) kể cả khi nền/nội dung
+  không đục. Layer 1:1 thì glyph subpixel không bị smear; viền glyph blend theo subpixel với
+  pixel trong suốt — đúng kiểu ClearType.
+- Layer không aligned (offset lẻ, animation, will-change chưa aligned) vẫn grayscale như trước
+  (nhánh `!raster_translation_aligns_pixels` giữ nguyên) → không tái hiện lỗi nhòe fixup 20.
+- Rủi ro: chữ trên panel trong suốt nền loang lổ sẽ có viền màu ClearType (bình thường); nếu
+  panel nào trông tệ hơn thì bỏ fixup này.
+
+### Artifacts (thay md5 §21)
+
+| File | md5 (fixup 22) | baseline fixup 19 |
+|---|---|---|
+| `chrome.dll` | `f4f20ab8cb651b8da1cdbf911b290af4` | `1d73fc5663231d9712a66c888140da97` |
+| `chrome-win7.zip` | `a8f5fa2961d7b02cbbf5e8181bb0eb09` (205.033.285 B, 10:40) | `0d27759336166d46e65c61c1e7ce84f5` |
+| `chrome-win7-setup.exe` | `bea310a14a76d6d6164262986522120c` (135.326.326 B, 10:45) | `9abf8d76470205588170c1ebaf34da3e` (135.321.216 B) |
+
+- Nếu bubble vẫn grayscale sau fixup 22 → layer bubble **không aligned** (vị trí lẻ pixel /
+  đang animation) → cần fixup 23 probe (log LCD reason) mới kết luận được.
+- Trạng thái: build xong, chờ user test bubble + YouTube + text-test.
