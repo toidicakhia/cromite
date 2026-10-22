@@ -911,3 +911,24 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 - Bản fixup 22 giữ tham chiếu ở `chrome-win7-fixup22-lcdbubble-experiment*.zip/exe`.
 - Trạng thái bubble Proton: giữ grayscale (mượt) theo stock; để nét hơn thì chỉ còn cách ép LCD —
   đã chứng minh là tệ hơn, nên đóng hướng này.
+
+### Chuỗi code đầy đủ của cơ chế LCD/grayscale (truy hết, 2026-10-22)
+
+1. `cc/layers/picture_layer_impl.cc:706` `ComputeLCDTextDisallowedReason` — cổng chặn theo layer.
+   Thí nghiệm fixup 22 chứng minh bubble chỉ bị chặn bởi `contents_opaque_for_text()==false`
+   → `kContentsNotOpaque` (layer aligned, không animation, không filter-gate).
+2. `cc/tiles/tile_manager.cc` — `PlaybackSettings.use_lcd_text = tile->can_use_lcd_text()`.
+3. `cc/paint/paint_op_buffer_serializer.cc:37-40` — `can_use_lcd_text` đi vào surface props khi
+   serialize (`skia::LegacyDisplayGlobals::ComputeSurfaceProps(...)`).
+4. `gpu/command_buffer/service/raster_decoder.cc:2868-2872` — **công tắc thật**:
+   `SkSurfaceProps(flags, kUnknown_SkPixelGeometry)` để tắt LCD (comment stock: "Use unknown pixel
+   geometry to disable LCD text"); nếu `can_use_lcd_text` thì dùng pixel geometry của màn hình
+   (RGB/BGR từ Windows) → Skia raster glyph subpixel.
+5. Edging của font: `third_party/blink/renderer/platform/fonts/win/font_platform_data_win.cc:52-58`
+   và `.../web_font_render_style.cc:94-102` — `SkFont::Edging::kSubpixelAntiAlias` theo cài đặt
+   ClearType của Windows (chính chỗ fixup 19 khôi phục).
+6. Chữ ký định lượng của "tệ hơn" (đo ảnh cũ/mới): advance từng ký tự y hệt (9/4/7 px), chiều cao
+   y hệt → **không đổi font/weight**; chỉ mực (ink) tăng **+56–79%** (gamma/độ dày đường subpixel)
+   + viền màu đỏ/lam đúng hướng. Trên nền bão hoà (chữ trắng/nút tím) và chữ nhỏ, hai hiệu ứng này
+   rõ nhất → grayscale mượt nhìn tốt hơn. Đây là bản chất subpixel, không có knob để "LCD mà không
+   đậm/không viền" ⇒ stock gates là đúng; đóng hướng này.
