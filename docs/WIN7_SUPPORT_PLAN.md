@@ -616,3 +616,53 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 - `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
 - Ghi chú: đây là bug tương tác giữa layout popup của M153 với native caption (không riêng win7 — sẽ
   gặp khi chạy native frame trên Win10 bằng theme hệ thống); có thể báo upstream kèm patch này.
+
+## 18. Fix video x.com "không thể phát phương tiện" — mở lại ffmpeg software decoder cho H.264/AAC (2026-10-22)
+
+### Triệu chứng (user báo trên Win8.1, GPU Intel Ironlake 2010, driver 8.15.10.2900)
+
+- Video trên **x.com** báo *"không thể phát phương tiện"* (mọi video, kể cả video có tiếng);
+  **YouTube phát bình thường**.
+- `chrome://gpu`: `Video Decode: Hardware accelerated` (D3D11) — driver cũ fail đường decode cứng
+  nhưng không còn đường dự phòng nào khác.
+
+### Nguyên nhân gốc (cromite, không liên quan win7)
+
+1. Patch cromite `build/patches/Enable-platform-aac-audio-and-h264-video.patch` + hai GN args
+   `enable_platform_aac_audio = true`, `enable_platform_h264_video = true` (bản win7 đang build —
+   mục đích upstream là dùng thư viện hệ thống thay ffmpeg vì licence). Hai flag được dịch thành
+   buildflag `ENABLE_PLATFORM_AAC_AUDIO`/`ENABLE_PLATFORM_H264_VIDEO` và **tắt hẳn decoder mềm ffmpeg**
+   cho đúng codec đó:
+   - `media/filters/ffmpeg_video_decoder.cc`: `IsCodecSupported()` trả `false` cho `kH264`.
+   - `media/filters/ffmpeg_audio_decoder.cc`: `kAAC` → `kUnsupportedProfile`.
+   - kèm `media/gpu/windows/supported_profile_helpers.cc` mở max H.264 resolution lên 4096x2304 và
+     MediaFoundation AAC dùng ADTS (`wPayloadType = 1`).
+2. Hệ quả: H.264 chỉ còn **duy nhất** decoder cứng D3D11, AAC chỉ còn MediaFoundation. Trên Intel
+   Ironlake + driver 8.15.10.2900 đường decode cứng fail → **không còn fallback** → pipeline báo lỗi
+   decode, player của x.com hiện "không thể phát phương tiện".
+3. YouTube không dính vì dùng **VP9/Opus** (decoder mềm libvpx/ffmpeg — không bị hai flag này đụng).
+
+### Fix (build args — không phải patch nguồn)
+
+- `build/cromite.gn_args`: trong nhánh `if (target_os == "win")` đặt lại
+  `enable_platform_aac_audio = false`, `enable_platform_h264_video = false`. Với `proprietary_codecs=true`
+  + `ffmpeg_branding="Chrome"`, hai decoder mềm ffmpeg được build trở lại.
+- Hardware decode D3D11 vẫn được ưu tiên khi chạy được; khi driver cũ fail → tự rơi về ffmpeg
+  (chỉ tốn thêm CPU lúc software decode; chấp nhận được với máy cũ). YouTube/VP9 không đổi.
+- Android giữ nguyên `true` (override nằm trong nhánh win nên không ảnh hưởng build android).
+- Xác nhận qua `out/win64/gen/media/media_buildflags.h`: `ENABLE_PLATFORM_AAC_AUDIO=0`,
+  `ENABLE_PLATFORM_H264_VIDEO=0`.
+- Đánh đổi: quay lại dùng decoder mềm ffmpeg cho H.264/AAC (khác với hướng licence của upstream
+  cromite); muốn về hành vi cũ chỉ cần đổi lại hai args thành `true`.
+
+### Artifacts (thay thế md5 ở §17)
+
+| File | md5 mới | md5 cũ (§17) |
+|---|---|---|
+| `chrome.dll` | `542c4bd71519b3b8ee6f60187095c8ca` | `e8edf6149604ed0a53b8fb83d41cdf2c` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `086f0fcb24df6eff452182941706ad34` (205.035.822 B, 15:00) | `a688c301f4a05b054efbbb3991cd72f8` |
+| `chrome-win7-setup.exe` | `f3efdf1a2cdfaf26bc87f18303fc53e3` (135.362.514 B, 15:05) | `b0f3d9b4a5cd0bf7f1f2bceed2932b9d` |
+
+- `artifacts/final/` đã refresh (chrome.dll/chrome_elf.dll/chrome.exe).
