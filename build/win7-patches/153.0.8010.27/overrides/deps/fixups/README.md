@@ -8,9 +8,16 @@ phase 3** by `04b-apply-win7-patches.sh` (each patch is guarded with
 of breaking the pipeline).
 
 Canonical, build-verified state: `chromium/src` branch
-`win7-153.0.8010.37` with these fixes applied on top of the REWORK
-patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
-`chrome.exe` builds and links.
+`win7-153.0.8010.37` with the currently enabled fixes (`10`-`19`)
+applied on top of the REWORK patches. All affected objects compile
+(`siso ninja -C out/win64 chrome`); `chrome.exe` builds and links.
+
+**2026-10-23: all blur/LCD-text fixes were removed permanently at the user's
+request.** Their patch files (including the former `fixups/reverted/` copies)
+were deleted and are not applied by the build. The canvas-noise fixup was
+renumbered `26` -> `19` so the sequence is contiguous (`10`-`19`). The main
+build now uses cromite's stock grayscale text rendering again; see
+`docs/WIN7_SUPPORT_PLAN.md` §19-§27 for the removed fixes' history.
 
 ## Patches
 
@@ -25,10 +32,7 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
 | `16-suppress-unsupported-os-warning.patch` | `chrome/browser/ui/startup` (1 file) | Default the `browser.suppress_unsupported_os_warning` pref to `true`, hiding the "To get future Cromite updates, you'll need Windows 10 or later" infobar on Win7/8/8.1. See below. |
 | `17-viewport-protection-hittest-fix.patch` | `third_party/blink` (1 file) | Map DIP coordinates by the device-emulation scale in the OOPIF hit test (`GetFrameSinkIdAtPoint`), so clicks land on cross-origin iframes (Proton Pass popup) while cromite's Viewport Protection is active. See below. |
 | `18-devtools-popup-caption-strip-fix.patch` | `chrome/browser/ui/views/frame` (1 file) | Don't report caption-button exclusions for popup-type windows with a native frame, removing the unpainted (black) strip below the caption of the undocked DevTools window on pre-Win10. See below. |
-| `19-restore-cleartype-font-rendering.patch` | `ui/gfx` (2 files) | Revert the force-grayscale half of cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch`: honor the system ClearType settings again (stock behavior), removing the soft/washed-out grayscale AA on all text. See below. |
-| `20-force-lcd-text-in-renderer.patch` | `third_party/blink` (1 file) | **REVERTED 2026-10-22** (user reported a YouTube problem while testing it; no causal link found; patch kept in `fixups/reverted/`). Force LCD (subpixel/ClearType) text rasterization in every renderer compositor layer (`layers_always_allowed_lcd_text`), so text in floating/composited content (Facebook post dialogs, extension bubbles, animated menus) is no longer rendered with blurry grayscale AA. See below. |
-| `21-allow-lcd-text-on-pixel-aligned-layers.patch` | `cc` (1 file) | Allow LCD text when a layer's raster translation is pixel-aligned (`PictureLayerImpl::ComputeLCDTextDisallowedReason`): static `will-change: transform` containers (YouTube sidebar/video titles, Facebook dialogs at rest) lose the grayscale AA without risking the resampling blur that forcing LCD text unconditionally can cause. See below. |
-| `22-allow-lcd-text-on-aligned-translucent-layers.patch` | `cc` (1 file) | **REVERTED 2026-10-22** (user: "tệ hơn so với trước" — ClearType on the small purple/white bubble UI shows strong color fringes and much denser glyphs; stock Chromium gates these layers for a reason; patch kept in `fixups/reverted/`). Keep LCD text on pixel-aligned layers even when the layer background/contents are not opaque (rounded floating panels, extension bubbles, dropdown menus): drop the stock `kBackgroundColorNotOpaque`/`kContentsNotOpaque` fallback for aligned layers, which kept the Proton Pass "Save passkey" bubble on blurry grayscale AA. See below. |
+| `19-canvas-noise-deterministic.patch` | `third_party/blink` (1 file) | Make cromite's canvas fingerprinting noise stable across repeated readbacks of the same canvas (per-process salt + pixel-derived seed) instead of random per call, so Cloudflare Turnstile/challenges no longer classify the browser as canvas-tampering. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -144,81 +148,6 @@ patches. All affected objects compile (`siso ninja -C out/win64 chrome`);
   zoom, resize and panel switching behave normally; regular browser windows
   unaffected.
 
-### `19-restore-cleartype-font-rendering.patch` contents
-
-- cromite's `Do-not-use-Windows-ClearType-Text-Tuner-setting.patch` forces
-  `SUBPIXEL_RENDERING_NONE` with three `if ((true))` overrides:
-  an early return in `GetSubpixelRenderingGeometry()`, an early return in
-  `FontUtilWin::GetTextSettingsRegistryKey()`, and an unconditional branch in
-  `CachedFontRenderParams::GetParams()` that ignores
-  `SystemParametersInfo(SPI_GETFONTSMOOTHING)`.
-- Blink renderers drive their font style from the browser's
-  `gfx::FontRenderParams`: `renderer_preferences_.subpixel_rendering`
-  (`WebViewImpl::UpdateFontRenderingFromRendererPrefs()`) →
-  `WebFontRendering::SetLCDTextEnabled()` → `FontCache::lcd_text_enabled_` →
-  `FontPlatformData::QuerySystemForRenderStyle()` →
-  `CreateSkFont()` sets `kSubpixelAntiAlias` only if subpixel rendering is
-  not NONE. With the forced NONE every glyph is drawn with grayscale AA, so
-  on ClearType-enabled systems (the Win7/8/8.1 default) all browser UI and
-  web content text is perceptibly softer than stock Chrome (user report: the
-  text inside the Facebook post dialog on Win8.1 looked blurry; screenshot
-  forensics: all glyph pixels are channel-neutral, i.e. no ClearType
-  fringes).
-- Fix: drop the three `if ((true))` overrides. `GetParams()` honors
-  `SPI_GETFONTSMOOTHING` + `SPI_GETFONTSMOOTHINGTYPE` (ClearType) again,
-  `GetSubpixelRenderingGeometry()` reads the per-display
-  `PixelStructure`/`SPI_GETFONTSMOOTHINGORIENTATION` registry values, and
-  `GetTextSettingsRegistryKey()` is re-enabled (also restores the ClearType
-  tuner gamma/contrast read via `kUseGammaContrastRegistrySettings`). The
-  win7 patchset's `win::IsDirectWriteEnabled()` tweak in the same block is
-  kept (GDI fallback on Win7 stays without subpixel positioning).
-- Trade-off: re-enables the ClearType-tuner fingerprint bits cromite
-  deliberately hides (subpixel geometry orientation, text gamma/contrast).
-  To go back to cromite behavior, drop this fixup; there is no flag.
-
-### `20-force-lcd-text-in-renderer.patch` contents
-
-> **REVERTED (2026-10-22).** The user reported a YouTube problem shortly after
-> installing the build with this fixup and asked to revert it and audit the
-> patchset. No mechanism connecting a text-rasterization flag to media
-> playback was found; the build was reverted to be safe
-> (`git revert e912407f39`, patch moved to `fixups/reverted/`). Move the patch
-> back into `fixups/` to re-enable it once the YouTube issue is understood.
-> All findings below remain valid.
-
-- After fixup 19 the general ClearType rendering was restored, but text in
-  floating/composited web content still rendered with grayscale AA. cc
-  disallows LCD text per layer in the renderer:
-  `PictureLayerImpl::ComputeLCDTextDisallowedReason()` returns
-  `kWillChangeTransform`, `kTransformAnimation`, `kPixelOrColorEffect`
-  (`filter`/`backdrop-filter`), `kNonIntegral*` or `kContentsNotOpaque` for
-  any layer whose contents may be resampled or drawn over a non-opaque
-  backdrop. Facebook's post dialog qualifies on several counts (entrance
-  `transform` animation, `will-change: transform`, `translate(-50%,-50%)`
-  centering with fractional offsets, backdrop-blurred overlay), so the whole
-  dialog subtree — title, caption, comments, composer — rasterizes grayscale.
-  This is stock Chromium behavior (Chrome/Edge render such text the same),
-  but on this build the contrast with the now-ClearType-rendered "normal"
-  text is very visible, and the user prefers crisp text.
-- Fix: set `settings.layers_always_allowed_lcd_text = true` in
-  `blink::GenerateLayerTreeSettings()` (renderer web-content settings). The
-  browser UI compositor already does exactly this
-  (`ui/compositor/compositor.cc`), which is why the omnibox/tab-strip text
-  had ClearType fringes all along; this extends the same behavior to web
-  content. Every text layer then rasterizes with subpixel AA regardless of
-  transform/opacity/backdrop conditions.
-- Verified empirically with a test page (`artifacts/final/text-test.html`):
-  panel A (plain text) and the toolbar tab title show ClearType fringes
-  (channel deltas ±179), while a card over a `backdrop-filter` background, a
-  `will-change: transform` card, an `opacity: .999` card and a `scale(1.001)`
-  card were all channel-neutral (pure grayscale) in the same screenshot —
-  the exact signature of the Facebook dialog text.
-- Trade-off: such layers may be composited with fractional offsets or
-  resampled (during scale animations), which can show faint color fringing on
-  text while a dialog animates; where Chromium previously chose safety over
-  sharpness. To go back to stock behavior, drop this fixup (or restore the
-  `chrome-baseline-fixup19.dll` artifact baked before it); there is no flag.
-
 ### `10-win7-runtime-fixes.patch` contents
 
 - **sandbox/win**: assign the job object after process creation on
@@ -263,154 +192,29 @@ For `11-*`/`12-*` run the same command from `third_party/dawn` /
 `third_party/<repo>/` prefix, so apply from `chromium/src` or strip one
 level).
 
-### `21-allow-lcd-text-on-pixel-aligned-layers.patch` contents
+### `19-canvas-noise-deterministic.patch` contents
 
-- User follow-up after the fixup-20 revert: with fixup 20 (or 19) build, the
-  text of YouTube's sidebar and video titles still renders with grayscale AA
-  (measured on the user's screenshot: those regions are channel-neutral while
-  the search box / metadata lines have ClearType fringes). These elements sit
-  in `will-change: transform` containers, so `ComputeLCDTextDisallowedReason()`
-  returns `kWillChangeTransform` even though nothing is animating and the
-  layer is rastered pixel-exact.
-- Forcing LCD text for *all* layers (fixup 20) is too blunt: layers that are
-  actually resampled (transform animations, fractional offsets, filters) then
-  got sampled subpixel glyphs and looked blurry/noisy (the YouTube regression
-  the user hit). This patch instead reorders the checks: `kTransformAnimation`
-  stays unconditional; the will-change / effect-filter / fractional-offset
-  checks only apply when `raster_translation_aligns_pixels` is false. Layers
-  whose raster translation is pixel-aligned are drawn 1:1, so subpixel glyphs
-  cannot smear — they can safely use LCD text. Non-aligned layers keep the
-  stock grayscale pipeline, so the fixup-20 artifacts cannot come back.
-- Expected effects: static `will-change` containers (YouTube sidebar/titles,
-  Facebook dialogs at rest, extension bubbles) get ClearType; running
-  animations and non-opaque/scaled content stay grayscale.
-- Trade-off: during a purely translational animation the raster translation
-  can remain aligned, so LCD text may persist while the layer moves (Chromium
-  snaps the composited position to whole pixels; stock behavior would have
-  switched to grayscale). To go back to stock, drop this fixup.
-
-### `22-allow-lcd-text-on-aligned-translucent-layers.patch` contents
-
-- User follow-up after fixup 21 (screenshot of the Proton Pass "Save passkey"
-  bubble): every text run in the bubble measures as pure grayscale AA (100%
-  of the text pixels lie on the alpha-blend line between the text color and
-  the card background; zero subpixel deviation). The bubble is a rounded
-  floating panel whose background/contents are not opaque, so
-  `ComputeLCDTextDisallowedReason()` still returns
-  `kBackgroundColorNotOpaque`/`kContentsNotOpaque` even though the layer is
-  rastered pixel-aligned and nothing animates.
-- This patch drops that fallback for aligned layers: a pixel-aligned layer is
-  composited 1:1, so per-subpixel glyph blending stays pixel-exact even when
-  the surrounding pixels are translucent — the glyph edges blend per-subpixel
-  against transparency exactly like classic ClearType. Non-aligned layers
-  (fractional offsets, running animations, pending will-change) still return
-  grayscale before this check, so the fixup-20 resampling blur cannot come
-  back.
-- Expected effects: text on rounded/translucent floating panels (extension
-  bubbles, dropdown menus, dialogs) gets ClearType again. Trade-off: such
-  text now shows normal colored ClearType fringes over variegated backdrops;
-  if a specific panel looks worse than the grayscale AA, drop this fixup.
-- Diagnostic value: if the bubble is still grayscale after this fixup, its
-  layer is not pixel-aligned (fractional position or animation), and only a
-  runtime probe of the disallow reason can tell us why.
-
-- **REVERTED 2026-10-22**: built and tested; the bubble text did switch to
-  LCD (measured on the user's screenshot: correct red/blue fringe orientation,
-  1-px fringes, no resampling), but the user judged the result *worse* than
-  the grayscale state: white-on-purple button labels ("Update") and small
-  purple/white text over the near-white card show strong colored fringes, and
-  subpixel gamma makes the thin fonts much denser/darker than the smooth
-  grayscale look. The stock `kBackgroundColorNotOpaque`/`kContentsNotOpaque`
-  gates exist exactly to avoid this on translucent/rounded panels, so the
-  fixup was reverted (tree back to the fixup-21 state, chrome.dll md5
-  `d0eb122814acfc547a89465bfb257be3`) and the patch moved to
-  `fixups/reverted/`.
-
-### `23-propagate-text-gamma-contrast-switches.patch` contents
-
-- Follow-up to the fixup-22 revert and the user question "can it still be
-  fixed?": the density/fringing of LCD text is controlled by the
-  `SkSurfaceProps` `text_contrast`/`text_gamma` used when rasterizing
-  (`gpu/command_buffer/service/raster_decoder.cc:2868-2872`,
-  `skia::LegacyDisplayGlobals::GetSkSurfaceProps`). On Windows those values
-  come from `ui/gfx/font_render_params_win.cc`: the Windows ClearType tuner
-  values when `HKCU\SOFTWARE\Microsoft\Avalon.Graphics\<DISPLAY>` exists
-  (feature `kUseGammaContrastRegistrySettings`, default on), otherwise the
-  build defaults `SK_GAMMA_EXPONENT=0.0` (SRGB) + `SK_GAMMA_CONTRAST=1.0`
-  (skia/BUILD.gn `is_win`; Skia's SkTypes.h notes "with higher values lcd
-  fringing is worse and the smoothing effect of partial coverage is
-  diminished") -- the densest/most fringed setting.
-- Upstream ships two testing switches, `--text-gamma`/`--text-contrast`
-  (`skia/ext/switches.cc`), which `LegacyDisplayGlobals::GetSkSurfaceProps()`
-  reads with priority, but upstream only propagates them to the renderer
-  process (`content/browser/renderer_host/render_process_host_impl.cc:4016-4017`)
-  and not to the GPU process (`content/browser/gpu/gpu_process_host.cc`
-  `kSwitchNames`) -- and on this build GPU raster happens in the GPU process,
-  so the switches previously had no effect.
-- This patch adds `skia/ext/switches.h` and the two switch names to the
-  GPU-process `kSwitchNames` allowlist under `BUILDFLAG(IS_WIN)`. Default
-  rendering is unchanged unless the switches are passed; it enables runtime
-  sweeping of LCD gamma/contrast (for normal pages always, and together with
-  a re-applied fixup 22 for translucent panels like the Proton bubble).
-- If a combination is accepted, a follow-up fixup will hardcode the values
-  (and fixup 22 may be re-applied permanently); otherwise the main build
-  keeps fixup 21 + this inert propagation.
-
-### `24-lcd-text-contrast-registry-tuning.patch` contents
-
-- Follow-up to the user's "no ClearType tuning key" report and the observation
-  that the upstream `--text-gamma` / `--text-contrast` switches had **no visible
-  effect** (all three test combinations looked identical).
-- What the code actually does (traced in the 153 tree):
-  - `SkSurfaceProps::textContrast()/textGamma()` are the only knobs that
-    influence how Skia weights glyph coverage. They reach the glyph masks
-    through `SkScalerContext::MakeRecAndEffects` (`rec->setDeviceGamma()` /
-    `rec->setContrast()`) and are applied by the **pre-blend LUT**
-    (`SkMaskGamma`): `SkScalerContext_win_dw.cpp` applies it to both the
-    grayscale (`GrayscaleToA8`) and the ClearType (`RGBToLcd16`) mask paths.
-  - Windows builds with `SK_GAMMA_CONTRAST=1.0` (`skia/BUILD.gn`, `is_win`
-    branch) - the **maximum** artificial contrast. Skia's own comment in
-    `SkTypes.h` says: "With higher values lcd fringing is worse and the
-    smoothing effect of partial coverage is diminished", and Linux ships
-    `0.2` / gamma `1.2` instead. That is why Windows Chromium text (and
-    especially LCD text on saturated backgrounds) looks heavier than the
-    same site in a Linux build.
-  - The values are produced in the browser process
-    (`ui/gfx/font_render_params_win.cc` -> `FontUtilWin::GetTextParameters()`)
-    and shipped to the GPU process over
-    `GpuHostImpl::InitFontRenderParams` -> `VizMainImpl::SetRenderParams` ->
-    `LegacyDisplayGlobals::SetCachedParams`, and to the renderer through
-    `RendererPreferences`. The upstream command-line switches are read in
-    `skia/ext/legacy_display_globals.cc` (`GetSkSurfaceProps()`), i.e. they
-    only work in a process whose command line carries them - which is why
-    fixup 23 forwards them to the GPU process.
-  - On a machine without `HKCU\Software\Microsoft\Avalon.Graphics\<display>`
-    (i.e. ClearType never tuned) Chromium falls back to the build defaults
-    (contrast 1.0, gamma 0.0 = sRGB), so there was nothing to tune with.
-- This patch adds an optional registry override in
-  `ui/gfx/font_util_win.cc`, read once per process:
-  - `HKCU\Software\Cromite\FontTuning\Contrast` (DWORD, 0..100 -> 0.0..1.0)
-  - `HKCU\Software\Cromite\FontTuning\Gamma` (DWORD, 0..300 -> 0.0..3.0)
-  With no key present the behaviour is byte-identical to stock Chromium.
-  Because the value is read in the browser process and propagated over the
-  existing `FontRenderParams` IPC, it applies to the GPU raster path as well
-  and needs no command line switch (no risk of a running Chrome instance
-  swallowing the flags) - only a browser restart.
-
-### `25-lcd-text-tuning-direct-registry-read.patch` contents
-
-- User reported that fixup 24's `HKCU\Software\Cromite\FontTuning` knob had
-  **no effect** on the installed builds.
-- Fixup 24 only feeds the value into `gfx::FontRenderParams` in the browser
-  process, which then travels to the renderer/GPU over IPC and is cached per
-  process (`CachedFontRenderParams::GetParams()` + `std::call_once` in
-  `GetTextParameters()`). That chain is correct, but it is fragile to test:
-  one stale artifact, a reused profile, or a process that never re-reads the
-  params is enough for the value to look inert.
-- This patch removes all of that: `skia::LegacyDisplayGlobals::GetSkSurfaceProps`
-  (the single function every raster/LCD decision goes through) now re-reads
-  `HKCU\Software\Cromite\FontTuning` on each query, in **every** process
-  (browser, renderer, GPU), on top of the cached values and the command line.
-  No key => behaviour is byte-identical to stock.
-- That makes the knob work without restarting for the renderer (the browser
-  only needs a restart for its own UI text), and independent of IPC timing.
+- User report: Cloudflare anti-bot/Turnstile never passes in the Win7 build.
+  Cloudflare's own troubleshooter (`https://debug.challenges.cloudflare.com/`)
+  runs `canvas.toDataURL()` three times on the same static drawing and fails
+  with **"Canvas Randomization Detected"** (high severity) when the results
+  differ.
+- Cromite's `Multiple-fingerprinting-mitigations.patch` adds noise in
+  `StaticBitmapImage::ShuffleSubchannelColorData()` using `base::RandIntInclusive()`
+  on every readback. The function is called by `getImageData()`, `toDataURL()`
+  and the async blob encoder, so every read of the same canvas returns
+  different pixels. Cloudflare (and any fingerprinting script that samples a
+  canvas twice) detects this immediately; it is also trivial to detect in
+  general, so the mitigation was leaking as a bot signal.
+- This patch derives the noise deterministically instead:
+  - a per-process `base::RandUint64()` salt (changes on browser restart),
+  - mixed with dimensions/offsets/stride and a cheap sample of the pixmap's
+    current bytes,
+  - then a small LCG produces the pixel positions and RGB deltas.
+  Repeated reads of an unchanged canvas therefore return identical data, while
+  different sessions still get different noise, and identical canvases on
+  different machines are not trivially linkable.
+- The pixel cap (max 100 pixels), per-format handling and the
+  `--fingerprinting-canvas-image-data-noise` opt-out are unchanged.
+- Test: load `https://debug.challenges.cloudflare.com/` (all checks should
+  pass, no canvas-randomization issue) and a Turnstile-protected login page.

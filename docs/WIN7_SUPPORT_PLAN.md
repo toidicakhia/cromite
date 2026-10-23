@@ -788,9 +788,10 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 
 ### REVERT (2026-10-22)
 
-- Tree: `git revert e912407f39` (commit `b7d6a01baf`). Patch chuyển sang
+- Tree: `git revert e912407f39` (commit `b7d6a01baf`). Patch từng chuyển sang
   `overrides/deps/fixups/reverted/20-force-lcd-text-in-renderer.patch` (glob `fixups/*.patch`
-  không với tới thư mục con → build sau không còn áp dụng).
+  không với tới thư mục con → build sau không còn áp dụng); file này đã bị
+  **xoá hẳn** ngày 2026-10-23.
 - Artifacts: `chrome-win7.zip`/`chrome-win7-setup.exe` quay lại bản fixup 19 (md5 `0d277593...`);
   bản fixup 20 đổi tên thành `chrome-win7-lcdtext-experiment.zip`/`-setup.exe`.
 - Không tìm thấy cơ chế nào nối flag raster hóa chữ với phát video; revert để có trạng thái sạch
@@ -899,7 +900,8 @@ nhưng fork này chủ đích hỗ trợ các OS đó nên thông báo là nhi�
 - Kết luận: đây chính là lý do stock Chromium chặn LCD trên panel không đục/bo góc
   (`kBackgroundColorNotOpaque`/`kContentsNotOpaque`) — không phải bug. Ép LCD ở UI nhỏ nhiều màu
   cho kết quả tệ hơn grayscale.
-- **Đã revert fixup 22** (tree `d4ffe11ec7`; patch chuyển vào `fixups/reverted/`), build lại:
+- **Đã revert fixup 22** (tree `d4ffe11ec7`; patch từng chuyển vào `fixups/reverted/`
+  và đã bị xoá hẳn ngày 2026-10-23), build lại:
   `chrome.dll` md5 `d0eb122814acfc547a89465bfb257be3` — **trùng khớp tuyệt đối với build fixup 21**.
 
 | File | md5 (fixup 21 khôi phục, 2026-10-22 11:37) |
@@ -1101,3 +1103,120 @@ reg delete "HKCU\Software\Cromite\FontTuning" /f
 ```
 Nếu đổi giá trị mà ảnh **không đổi một pixel** ⇒ pre-blend LUT không được áp
 trong build này (khi đó vấn đề nằm ở Skia, không phải ở đường truyền giá trị).
+
+## 26. Fix Cloudflare anti-bot/Turnstile không qua được — canvas noise ngẫu nhiên từng lần đọc (2026-10-23)
+
+### Triệu chứng
+User báo **"không qua được anti-bot Cloudflare"** trên bản Win7/8.1: trang
+challenge/Turnstile quay mãi hoặc báo lỗi, dù Chrome/Edge trên cùng máy qua bình thường.
+
+### Nguyên nhân gốc (cromite, không liên quan win7)
+- Cloudflare có trang chẩn đoán chính thức `https://debug.challenges.cloudflare.com/`.
+  Trang này vẽ một canvas tĩnh rồi gọi `canvas.toDataURL()` **3 lần**; nếu 3 kết quả
+  khác nhau → kết luận **"Canvas Randomization Detected"** (severity high) và Turnstile fail.
+- Cromite `Multiple-fingerprinting-mitigations.patch` thêm noise trong
+  `StaticBitmapImage::ShuffleSubchannelColorData()` bằng `base::RandIntInclusive()`
+  **mỗi lần gọi**. Hàm này chạy cho cả `getImageData()`, `toDataURL()` và async blob
+  encoder ⇒ đọc lại cùng một canvas luôn ra pixel khác nhau. Đây vừa là tín hiệu bot
+  rõ ràng, vừa dễ bị phát hiện bởi bất kỳ script fingerprint nào đọc canvas ≥2 lần.
+- Các fixup trước (§16) chỉ sửa hit-test để click được vào iframe Turnstile; phần
+  challenge vẫn fail vì noise. Các báo cáo upstream (#2365) cũng khớp: tắt
+  `#fingerprinting-canvas-image-data-noise` (cùng vài flag fingerprint khác) thì qua.
+
+### Fix (fixup `19-canvas-noise-deterministic.patch`, `third_party/blink` 1 file)
+
+> Patch này ban đầu là fixup `26`; sau khi xoá các fixup blur `19`–`25` (2026-10-23),
+> nó được đánh số lại thành `19` cho liền mạch.
+
+- `ShuffleSubchannelColorData()` chuyển từ RNG toàn cục sang seed xác định:
+  - salt ngẫu nhiên **một lần mỗi process** (`base::RandUint64()`),
+  - trộn dimensions/offset/stride + mẫu byte của pixmap hiện tại,
+  - LCG nhỏ sinh vị trí pixel và delta RGB.
+- Cùng một canvas không đổi ⇒ mọi lần đọc trả về **cùng dữ liệu** (Cloudflare pass);
+  khác session/browser restart ⇒ noise khác; canvas khác nội dung ⇒ noise khác.
+- Giữ nguyên giới hạn tối đa 100 pixel, xử lý theo color type và flag opt-out
+  `--fingerprinting-canvas-image-data-noise`.
+
+### Artifacts (2026-10-23 13:20–13:25)
+> Các md5 dưới đây đã bị thay thế bởi §27 (bỏ toàn bộ fix blur/LCD text).
+
+| File | md5 mới | md5 cũ (§25) |
+|---|---|---|
+| `chrome.dll` | `8b09b045610c414fcfcbe810cf3dfc76` | `359b86b1ded2864ac74692dd042a1ccd` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `ff82df4c80dd314a76d24583220cd633` (205.033.681 B) | `b9fac5bcb79f5af8fbccd8a51b8cfb32` |
+| `chrome-win7-setup.exe` | `8d85d32ca6878a107bf050ff8a8aa4b5` (135.356.858 B) | `f7d566c6521b32b8c2b33cc606f4b025` |
+
+- `artifacts/final/` đã refresh (chrome.dll/chrome.exe/chrome_elf.dll).
+
+### Cách test
+1. Mở `https://debug.challenges.cloudflare.com/` → không còn mục
+   "Canvas Randomization Detected"; các test còn lại (WebGL, cookies, clock…) pass.
+2. Mở lại trang từng bị chặn (login/discord/…) → Turnstile qua, không loop.
+3. Nếu vẫn fail: gửi kết quả trang debug (Copy results) để xem test nào đỏ.
+
+### Trạng thái
+- Đã build + đóng gói + cập nhật artifacts; chờ user test thực tế.
+
+## 27. Bỏ toàn bộ fix blur/LCD text (2026-10-23)
+
+### Yêu cầu
+User yêu cầu **"Loại bỏ các fix liên quan đến lỗi blur"** — không dùng bất kỳ
+fixup nào liên quan đến ClearType/LCD text/blur nữa, kể cả các fix đã thêm ở
+§19–§25.
+
+### Đã bỏ
+Các fixup sau đã được **xoá hẳn** khỏi repo (kể cả các bản từng nằm trong
+`build/win7-patches/153.0.8010.27/overrides/deps/fixups/reverted/`), không còn
+file patch nào để re-apply:
+
+| Fixup | Nội dung |
+|---|---|
+| `19-restore-cleartype-font-rendering.patch` | Bỏ force-grayscale của cromite, dùng lại ClearType hệ thống |
+| `20-force-lcd-text-in-renderer.patch` | Force LCD text trong mọi renderer layer (đã revert từ 2026-10-22) |
+| `21-allow-lcd-text-on-pixel-aligned-layers.patch` | Cho LCD text trên layer pixel-aligned |
+| `22-allow-lcd-text-on-aligned-translucent-layers.patch` | Cho LCD text trên layer trong suốt aligned (đã revert từ 2026-10-22) |
+| `23-propagate-text-gamma-contrast-switches.patch` | Forward `--text-contrast`/`--text-gamma` sang GPU process |
+| `24-lcd-text-contrast-registry-tuning.patch` | Override contrast/gamma qua `HKCU\Software\Cromite\FontTuning` |
+| `25-lcd-text-tuning-direct-registry-read.patch` | Đọc trực tiếp registry `FontTuning` trong mọi process |
+
+Sau khi xoá, fixup canvas noise được đánh số lại từ `26` → `19` (dải fixup còn lại
+là `10`–`19`, không còn khoảng trống).
+
+### Thay đổi trong source
+Đã reverse-apply các fixup trên vào `chromium/src` (working tree, chưa commit):
+
+- `ui/gfx/font_render_params_win.cc` — trở lại force grayscale/`SUBPIXEL_RENDERING_NONE`
+- `ui/gfx/font_util_win.cc` — bỏ đọc `FontTuning` registry
+- `skia/ext/legacy_display_globals.cc` — bỏ đọc registry trực tiếp
+- `content/browser/gpu/gpu_process_host.cc` — bỏ forward 2 switch text
+- `cc/layers/picture_layer_impl.cc` — trở lại gate LCD text mặc định của Chromium
+
+Kết quả: text dùng lại hành vi mặc định của cromite (ClearType Tuner bị bỏ qua
+→ grayscale AA; không còn LCD text trên các layer `will-change`/pixel-aligned).
+Blur trên một số surface có thể quay lại — đúng theo yêu cầu user.
+
+Fixup `19-canvas-noise-deterministic.patch` (Cloudflare; đánh số lại từ `26`) **vẫn giữ nguyên**.
+
+### Artifacts (2026-10-23 13:32–13:37)
+| File | md5 mới | md5 cũ (§26) |
+|---|---|---|
+| `chrome.dll` | `5817edb6dee69cb6f3975eab13e3f824` | `8b09b045610c414fcfcbe810cf3dfc76` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `a5257809c08d451d10f8ead24d5597df` (205.034.206 B) | `ff82df4c80dd314a76d24583220cd633` |
+| `chrome-win7-setup.exe` | `7e0f8c16c0e2110c041b1eaf6464340b` (135.318.009 B) | `8d85d32ca6878a107bf050ff8a8aa4b5` |
+
+- `artifacts/final/` đã refresh (chrome.dll/chrome.exe/chrome_elf.dll).
+- `fixups/README.md` đã cập nhật trạng thái REMOVED cho 19–25; thư mục
+  `fixups/reverted/` đã bị xoá.
+
+### Cách test
+1. Mở vài trang có text trên nền trong suốt/`will-change` (Facebook dialog,
+   YouTube sidebar, extension bubble) — text sẽ quay lại kiểu grayscale mặc định.
+2. Mở `https://debug.challenges.cloudflare.com/` — fix canvas noise (26) vẫn còn,
+   không có "Canvas Randomization Detected".
+
+### Trạng thái
+- Đã build + đóng gói + cập nhật artifacts; chờ user test thực tế.
