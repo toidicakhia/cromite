@@ -1,0 +1,71 @@
+diff --git a/skia/ext/legacy_display_globals.cc b/skia/ext/legacy_display_globals.cc
+index 2cae07d71a..afd11ba38e 100644
+--- a/skia/ext/legacy_display_globals.cc
++++ b/skia/ext/legacy_display_globals.cc
+@@ -12,6 +12,14 @@
+ #include "skia/ext/switches.h"
+ #include "ui/base/ui_base_features.h"
+ 
++#if BUILDFLAG(IS_WIN)
++#include <windows.h>
++
++#include <algorithm>
++
++#include "base/win/registry.h"
++#endif
++
+ namespace skia {
+ 
+ namespace {
+@@ -19,6 +27,31 @@ SkPixelGeometry g_pixel_geometry = kRGB_H_SkPixelGeometry;
+ float g_text_contrast = SK_GAMMA_CONTRAST;
+ float g_text_gamma = SK_GAMMA_EXPONENT;
+ 
++#if BUILDFLAG(IS_WIN)
++// [WIN7] Read the optional tuning override directly at every query so it works
++// in every process (browser, renderer, GPU) without any IPC or caching:
++//   HKCU\Software\Cromite\FontTuning\Contrast  (DWORD 0..100  -> 0.0..1.0)
++//   HKCU\Software\Cromite\FontTuning\Gamma     (DWORD 0..300  -> 0.0..3.0)
++void ApplyRegistryTuningOverride(float& contrast, float& gamma) {
++  static constexpr wchar_t kKeyPath[] = L"Software\\Cromite\\FontTuning";
++  base::win::RegKey key(HKEY_CURRENT_USER, kKeyPath, KEY_READ);
++  if (!key.Valid()) {
++    return;
++  }
++  DWORD value = 0;
++  if (key.ReadValueDW(L"Contrast", &value) == ERROR_SUCCESS) {
++    contrast = std::clamp(value / 100.0f,
++                          SkSurfaceProps::kMinContrastInclusive,
++                          SkSurfaceProps::kMaxContrastInclusive);
++  }
++  if (key.ReadValueDW(L"Gamma", &value) == ERROR_SUCCESS) {
++    gamma = std::clamp(value / 100.0f,
++                       SkSurfaceProps::kMinGammaInclusive,
++                       SkSurfaceProps::kMaxGammaExclusive - 0.001f);
++  }
++}
++#endif  // BUILDFLAG(IS_WIN)
++
+ // Lock to prevent data races between setting and getting values. It is
+ // not ideal to have mismatched `SkSurfaceProps` between threads, but it
+ // is not catastrophic.
+@@ -70,6 +103,9 @@ SkSurfaceProps LegacyDisplayGlobals::GetSkSurfaceProps(uint32_t flags) {
+ 
+   // Prioritize values from the command line for testing.
+   GetContrastAndGammaValuesFromCommandLine(contrast, gamma);
++#if BUILDFLAG(IS_WIN)
++  ApplyRegistryTuningOverride(contrast, gamma);
++#endif
+   return SkSurfaceProps{flags, g_pixel_geometry, contrast, gamma};
+ }
+ 
+@@ -85,6 +121,9 @@ SkSurfaceProps LegacyDisplayGlobals::ComputeSurfaceProps(
+ 
+   // Prioritize values from the command line for testing.
+   GetContrastAndGammaValuesFromCommandLine(contrast, gamma);
++#if BUILDFLAG(IS_WIN)
++  ApplyRegistryTuningOverride(contrast, gamma);
++#endif
+ 
+   // Use unknown pixel geometry to disable LCD text.
+   return SkSurfaceProps{flags, kUnknown_SkPixelGeometry, contrast, gamma};

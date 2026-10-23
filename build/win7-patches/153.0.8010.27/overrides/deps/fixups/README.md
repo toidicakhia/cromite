@@ -396,3 +396,21 @@ level).
   existing `FontRenderParams` IPC, it applies to the GPU raster path as well
   and needs no command line switch (no risk of a running Chrome instance
   swallowing the flags) - only a browser restart.
+
+### `25-lcd-text-tuning-direct-registry-read.patch` contents
+
+- User reported that fixup 24's `HKCU\Software\Cromite\FontTuning` knob had
+  **no effect** on the installed builds.
+- Fixup 24 only feeds the value into `gfx::FontRenderParams` in the browser
+  process, which then travels to the renderer/GPU over IPC and is cached per
+  process (`CachedFontRenderParams::GetParams()` + `std::call_once` in
+  `GetTextParameters()`). That chain is correct, but it is fragile to test:
+  one stale artifact, a reused profile, or a process that never re-reads the
+  params is enough for the value to look inert.
+- This patch removes all of that: `skia::LegacyDisplayGlobals::GetSkSurfaceProps`
+  (the single function every raster/LCD decision goes through) now re-reads
+  `HKCU\Software\Cromite\FontTuning` on each query, in **every** process
+  (browser, renderer, GPU), on top of the cached values and the command line.
+  No key => behaviour is byte-identical to stock.
+- That makes the knob work without restarting for the renderer (the browser
+  only needs a restart for its own UI text), and independent of IPC timing.

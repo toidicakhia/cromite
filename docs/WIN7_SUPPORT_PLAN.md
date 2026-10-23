@@ -1057,3 +1057,47 @@ reg add "HKCU\Software\Cromite\FontTuning" /v Gamma    /t REG_DWORD /d 140 /f
 ### Trạng thái
 - Đã build cả main và 2 bản thử; fixup 24 + README + plan §24 commit repo.
 - Chờ user thử registry override.
+
+## 25. Knob registry "không có tác dụng" → đọc trực tiếp mỗi lần query (2026-10-23)
+
+### Phản hồi của user
+Sau fixup 24 (knob `HKCU\Software\Cromite\FontTuning`) vẫn "bị bình thường".
+
+### Nguyên nhân
+Fixup 24 chỉ đưa giá trị vào `gfx::FontRenderParams` ở **browser process**; giá
+trị sau đó đi sang renderer/GPU qua IPC và bị **cache theo process**
+(`CachedFontRenderParams::GetParams()` + `std::call_once` trong
+`GetTextParameters()`). Đường này đúng về lý thuyết nhưng rất dễ "trông như
+không có tác dụng": một artifact cũ, profile cũ, hoặc process đã đọc params
+trước khi key được tạo là đủ.
+
+### Fix (fixup `25-lcd-text-tuning-direct-registry-read.patch`, `skia/ext` 1 file)
+- `skia::LegacyDisplayGlobals::GetSkSurfaceProps()` / `ComputeSurfaceProps()`
+  — hàm duy nhất mà **mọi** quyết định raster/LCD đi qua — đọc lại
+  `HKCU\Software\Cromite\FontTuning` ở **mỗi lần query**, trong **mọi**
+  process (browser, renderer, GPU), xếp trên giá trị cache và command line.
+- Không có key ⇒ hành vi **byte-identical** với Chromium gốc.
+- Renderer không cần restart khi đổi giá trị (chỉ browser UI cần restart).
+- Bổ sung `artifacts/text-test.html`: trang tự kiểm tra (nhiều cỡ chữ, bold,
+  italic, gradient text, text-shadow, `will-change`, `backdrop-filter`) để
+  đánh giá viền màu/độ nét/độ đậm mà không phụ thuộc trang của site.
+
+### Artifacts (2026-10-23 02:30–02:33)
+| Bản | File | md5 |
+|---|---|---|
+| main + fixup 25 | `chrome.dll` | `359b86b1ded2864ac74692dd042a1ccd` |
+| main + fixup 25 | `chrome-win7-lcdtune-direct-experiment.zip` | `b9fac5bcb79f5af8fbccd8a51b8cfb32` (205.026.864 B) |
+| main + fixup 25 | `chrome-win7-lcdtune-direct-experiment-setup.exe` | `f7d566c6521b32b8c2b33cc606f4b025` (135.2xx B) |
+
+### Cách thử
+```
+reg add "HKCU\Software\Cromite\FontTuning" /v Contrast /t REG_DWORD /d 20 /f
+reg add "HKCU\Software\Cromite\FontTuning" /v Gamma    /t REG_DWORD /d 120 /f
+```
+mở `text-test.html`, bấm **Ctrl+F5** (renderer đọc lại ngay, không cần đóng
+Chrome). So sánh với khi xoá key:
+```
+reg delete "HKCU\Software\Cromite\FontTuning" /f
+```
+Nếu đổi giá trị mà ảnh **không đổi một pixel** ⇒ pre-blend LUT không được áp
+trong build này (khi đó vấn đề nằm ở Skia, không phải ở đường truyền giá trị).
