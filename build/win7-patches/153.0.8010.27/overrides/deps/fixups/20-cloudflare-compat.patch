@@ -1,0 +1,57 @@
+diff --git a/components/content_settings/core/browser/bromite_content_settings/viewport.inc b/components/content_settings/core/browser/bromite_content_settings/viewport.inc
+index 1bb189830e..5045245a4c 100644
+--- a/components/content_settings/core/browser/bromite_content_settings/viewport.inc
++++ b/components/content_settings/core/browser/bromite_content_settings/viewport.inc
+@@ -1,4 +1,4 @@
+-  Register(ContentSettingsType::VIEWPORT, "viewport", CONTENT_SETTING_ALLOW,
++  Register(ContentSettingsType::VIEWPORT, "viewport", CONTENT_SETTING_BLOCK,
+            WebsiteSettingsInfo::SYNCABLE,
+            /*allowlisted_schemes=*/{},
+            /*valid_settings=*/{CONTENT_SETTING_ALLOW,
+diff --git a/content/child/runtime_features.cc b/content/child/runtime_features.cc
+index ae8ed45f64..18420e40a1 100644
+--- a/content/child/runtime_features.cc
++++ b/content/child/runtime_features.cc
+@@ -456,10 +456,8 @@ void SetRuntimeFeaturesFromCommandLine(const base::CommandLine& command_line) {
+ // as a last resort.
+ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
+     const base::CommandLine& command_line) {
+-  WebRuntimeFeatures::EnableFingerprintingCanvasMeasureTextNoise(
+-      !command_line.HasSwitch(switches::kFingerprintingCanvasMeasureTextNoise));
+-  WebRuntimeFeatures::EnableFingerprintingCanvasImageDataNoise(
+-      !command_line.HasSwitch(switches::kFingerprintingCanvasImageDataNoise));
++  WebRuntimeFeatures::EnableFingerprintingCanvasMeasureTextNoise(false);
++  WebRuntimeFeatures::EnableFingerprintingCanvasImageDataNoise(false);
+   // CAUTION: Only add custom enabling logic here if it cannot
+   // be covered by the other functions.
+   if (base::FeatureList::IsEnabled(features::kPixelPerfect)) {
+diff --git a/cromite_flags/third_party/blink/common/features_cc/AudioBuffer-AnalyserNode-fp-mitigations.inc b/cromite_flags/third_party/blink/common/features_cc/AudioBuffer-AnalyserNode-fp-mitigations.inc
+index 9123451764..fd043b08e2 100644
+--- a/cromite_flags/third_party/blink/common/features_cc/AudioBuffer-AnalyserNode-fp-mitigations.inc
++++ b/cromite_flags/third_party/blink/common/features_cc/AudioBuffer-AnalyserNode-fp-mitigations.inc
+@@ -1,3 +1,3 @@
+ CROMITE_FEATURE(kAudioContextShuffleEnabled,
+                 "AudioContextShuffleEnabled",
+-                base::FEATURE_ENABLED_BY_DEFAULT);
++                base::FEATURE_DISABLED_BY_DEFAULT);
+diff --git a/cromite_flags/third_party/blink/common/features_cc/Fonts-fingerprinting-mitigation.inc b/cromite_flags/third_party/blink/common/features_cc/Fonts-fingerprinting-mitigation.inc
+index 13e3e3c8e9..951496df44 100644
+--- a/cromite_flags/third_party/blink/common/features_cc/Fonts-fingerprinting-mitigation.inc
++++ b/cromite_flags/third_party/blink/common/features_cc/Fonts-fingerprinting-mitigation.inc
+@@ -5,6 +5,6 @@ CROMITE_FEATURE(kFontsFingerprintMitigation,
+ #if BUILDFLAG(IS_ANDROID)
+                 base::FEATURE_DISABLED_BY_DEFAULT
+ #else
+-                base::FEATURE_ENABLED_BY_DEFAULT
++                base::FEATURE_DISABLED_BY_DEFAULT
+ #endif
+ );
+diff --git a/cromite_flags/third_party/blink/common/features_cc/High-resolution-timing-mitigation.inc b/cromite_flags/third_party/blink/common/features_cc/High-resolution-timing-mitigation.inc
+index 39aa059c9c..e64646cbc0 100644
+--- a/cromite_flags/third_party/blink/common/features_cc/High-resolution-timing-mitigation.inc
++++ b/cromite_flags/third_party/blink/common/features_cc/High-resolution-timing-mitigation.inc
+@@ -1,3 +1,3 @@
+ CROMITE_FEATURE(kHighResolutionTimingMitigation,
+                 "HighResolutionTimingMitigation",
+-                base::FEATURE_ENABLED_BY_DEFAULT);
++                base::FEATURE_DISABLED_BY_DEFAULT);

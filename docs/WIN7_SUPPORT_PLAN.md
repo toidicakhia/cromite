@@ -1220,3 +1220,174 @@ Fixup `19-canvas-noise-deterministic.patch` (Cloudflare; đánh số lại từ 
 
 ### Trạng thái
 - Đã build + đóng gói + cập nhật artifacts; chờ user test thực tế.
+
+## 28. Cloudflare vẫn fail sau fix canvas — tắt các fingerprint mitigation mặc định (2026-10-23)
+
+### Triệu chứng
+Sau §26/§27 (canvas noise đã deterministic, blur fix đã bỏ), user vẫn **không qua
+được Cloudflare anti-bot/Turnstile**.
+
+### Điều tra
+- `https://debug.challenges.cloudflare.com/` (cùng code với
+  `https://browser-compat.turnstile.workers.dev/`) chỉ kiểm tra cục bộ 2 thứ:
+  canvas noise (đọc `toDataURL()` 3 lần) và WebGL spoofing; nếu qua 2 mục này mà
+  Turnstile vẫn fail thì vấn đề nằm ở tín hiệu khác (server-side / không được tool
+  kiểm tra).
+- Upstream `uazo/cromite#2365` ("CloudFlare Turnstile broken") có nhiều báo cáo
+  trùng khớp:
+  - `yorkyx`: chỉ qua khi tắt `#fingerprinting-audio-context-data-noise`,
+    `#fingerprinting-canvas-image-data-noise`,
+    `#fingerprinting-canvas-measuretext-noise`, `#fonts-fingerprint-mitigation`.
+  - `g-k-m`: `#viewport-protection` là nguyên nhân — tắt là qua; bật lại là fail
+    (kể cả Google captcha).
+  - `uazo`: Turnstile rất nhạy với response time; JIT/timing mitigation có ảnh
+    hưởng.
+- Trong build này, Viewport Protection **đang bật mặc định** qua content setting
+  `VIEWPORT = CONTENT_SETTING_ALLOW` (dù feature flag `kViewportProtection` mặc
+  định tắt): `Page::CalculateEmulatedScreenSetting()` nhận rule ALLOW từ
+  `HostContentSettingsMap`, rồi random scale screen/viewport ±0.03% mỗi origin.
+  Debug tool không thấy được việc này, nhưng Cloudflare thì có (screen/DPR/
+  viewport lệch, không nguyên).
+- Các mitigation khác cũng khác stock Chrome: fonts bị lọc, AudioContext bị
+  shuffle, timer bị giảm độ phân giải, canvas/measureText vẫn thêm noise (dù đã
+  deterministic).
+
+### Fix (fixup `20-cloudflare-compat.patch`, 5 file)
+Tắt mặc định các mitigation bị nghi ngờ (giữ flag để bật lại khi cần):
+
+| File | Thay đổi |
+|---|---|
+| `components/content_settings/core/browser/bromite_content_settings/viewport.inc` | `VIEWPORT` default `ALLOW` → `BLOCK` (Viewport Protection tắt mặc định) |
+| `cromite_flags/.../Fonts-fingerprinting-mitigation.inc` | desktop default `ENABLED` → `DISABLED` |
+| `cromite_flags/.../AudioBuffer-AnalyserNode-fp-mitigations.inc` | default `ENABLED` → `DISABLED` |
+| `cromite_flags/.../High-resolution-timing-mitigation.inc` | default `ENABLED` → `DISABLED` (timer về 100µs/5µs như stock) |
+| `content/child/runtime_features.cc` | canvas `measureText` + image-data noise luôn `false` (kéo theo client-rect/SVG noise = 1) |
+
+- Fixup `19-canvas-noise-deterministic.patch` vẫn giữ trong patchset nhưng không
+  còn tác dụng khi feature bị tắt; nếu sau này bật lại canvas noise thì vẫn stable.
+- Đánh đổi: mất 5 lớp bảo vệ fingerprint (fonts, audio, timing, canvas,
+  viewport). Đây là lựa chọn có chủ đích để qua Cloudflare; revert fixup 20 để
+  quay lại mặc định riêng tư của cromite.
+
+### Artifacts (2026-10-23 14:00–14:05)
+| File | md5 mới | md5 cũ (§27) |
+|---|---|---|
+| `chrome.dll` | `e41ab1f0868eca6dd9a6fb878bc5cfd2` | `5817edb6dee69cb6f3975eab13e3f824` |
+| `chrome.exe` | `962cc65654512246a42dfba39d8484d4` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `7d2566038d05fa232d96ba346b4eaa27` (205.034.898 B) | `a5257809c08d451d10f8ead24d5597df` |
+| `chrome-win7-setup.exe` | `5f71aca75b51f22d7985e12b96c5a3a4` (135.330.482 B) | `7e0f8c16c0e2110c041b1eaf6464340b` |
+
+- `artifacts/final/` đã refresh.
+
+### Cách test
+1. Cài `chrome-win7-setup.exe` mới; mở `chrome://flags/#viewport-protection` và
+   chắc chắn nó là **Default/Disabled** (nếu user từng bật, set lại Default rồi
+   restart — flag override sẽ thắng content-setting default).
+2. Mở `https://debug.challenges.cloudflare.com/`: "Privacy Tools" phải xanh
+   (không canvas noise, không WebGL spoof) và Turnstile phải pass.
+3. Thử lại trang từng bị chặn.
+4. Nếu vẫn fail: gửi "Copy results" của trang debug + command line trong
+   `chrome://version` để xem còn tín hiệu nào (WebGL, flags, UA/CH, TLS...).
+
+### Trạng thái
+- Đã build + đóng gói + cập nhật artifacts; chờ user test thực tế.
+- Fixup `20` + docs chưa commit (sẽ commit sau khi user xác nhận kết quả).
+- **2026-10-24:** user test bản fixup 20 vẫn fail `600010`; xem §29.
+
+## 29. Cloudflare `600010` sau fixup 20 — khôi phục profile Chrome "nhất quán" (2026-10-24)
+
+### Kết quả test của user
+User gửi JSON của `https://debug.challenges.cloudflare.com/`:
+- 4 test cục bộ đều pass: Automation, System Clock (lệch 20 ms), Privacy
+  Tools, Server Connection.
+- `extensionInterference`: canvas noise = không, WebGL = `no_webgl`
+  (không phải spoof), Brave Shields = không.
+- `browserInfo`: `doNotTrack: "1"`, `hardwareConcurrency: 8`,
+  `deviceMemory: 8`, screen 1600x900, window 1538x813, DPR 1,
+  timezone `Asia/Bangkok`, language `en-US,en`.
+- Turnstile: `errorCode: "600010"`, `errorTitle: "Security Check Failed"`,
+  `errorFamily: "Unknown"`, fail sau ~6,9 s; thử lại lần 2 vẫn lỗi.
+- `testMetadata.criticalFailure: "turnstile_failed_checks_passed"` — chính
+  trang debug kết luận "Turnstile Failed Despite Passing All Checks".
+
+### Ý nghĩa `600010`
+- Cloudflare docs: `600*` = "Generic challenge failure — Bot behavior
+  detected" (khác `300*` cũng generic nhưng thiên về challenge không chạy).
+- Brave dev `bbondy`: `600*` là **bị chấm là bot ở server**, còn `300*` là
+  challenge fail khi thực thi. Vì vậy đây không phải lỗi canvas/JS cục bộ;
+  Cloudflare đang thấy một tổ hợp tín hiệu không giống Chrome thật.
+- Debug tool hiện tại không kiểm tra các tín hiệu còn lại; nó chỉ báo
+  "pass hết nhưng Turnstile vẫn fail".
+
+### Các khác biệt còn lại so với stock Chrome
+Sau fixup 20 (viewport/fonts/audio/timing/canvas đã tắt), build vẫn khác:
+| Tín hiệu | Build cromite | Stock Chrome |
+|---|---|---|
+| WebGL | content setting `BLOCK` (`no_webgl`) | bật, renderer thật |
+| WebRTC | content setting `BLOCK`; IP handling `DisableNonProxiedUdp` | bật; `kDefault` |
+| DNT / GPC | `enable_do_not_track=true`, `enable_gpc=true` | mặc định không gửi |
+| `speechSynthesis.getVoices()` | feature `DisableSpeechSynthesisVoiceList` bật -> rỗng | có voices |
+| UA-CH high entropy | `AllowedToCollectHighEntropyValues()` luôn false; metadata high-entropy bị cắt; `uaFullVersion`/full list bị rút gọn; hầu hết hint bị chặn | trả đủ `platformVersion`, `architecture`, `bitness`, `uaFullVersion`, `fullVersionList`... |
+| Client hints header/iframe | `IsClientHintAllowed` chỉ cho một subset; iframe `Accept-CH` delegation bị tắt; hint chỉ persist 1 phút | đầy đủ, persist durable |
+| TLS | `ClientHelloFragmentation` bật (chia record 500 B); `DisableTLSResumption` bật | ClientHello nguyên; resume session |
+| `platformVersion` | trên Win7/8/8.1 là `0.1.0`/`0.2.0`/`0.3.0` trong khi UA nói `Windows NT 10.0` | Win10 nói `10.0.0`, Win11 nói version thật |
+
+Các mục trên đều là chủ ý privacy của cromite, nhưng đứng cùng nhau tạo ra
+profile **không nhất quán** với UA `Chrome/153` — đúng kiểu tín hiệu bot.
+
+### Fix (fixup `21-cloudflare-profile.patch`, 13 file)
+Khôi phục phần lớn bề mặt web API về stock Chrome:
+- **WebGL**: `WEBGL` default `BLOCK` -> `ALLOW`.
+- **WebRTC**: `WEBRTC` default `BLOCK` -> `ALLOW`; `browser_ui_prefs.cc`
+  dùng `kWebRTCIPHandlingDefault`; `webrtc_ip_handling_policy.cc` fallback
+  `kDefault` thay vì `kDisableNonProxiedUdp`.
+- **DNT/GPC**: `kEnableDoNotTrack`, `kEnableGPC` default `true` -> `false`.
+- **Speech**: `DisableSpeechSynthesisVoiceList` default `ENABLED` -> `DISABLED`.
+- **TLS**: `ClientHelloFragmentation` và `DisableTLSResumption` default
+  `ENABLED` -> `DISABLED`.
+- **UA-CH**:
+  - bỏ `if ((true)) return false;` trong `AllowedToCollectHighEntropyValues()`;
+  - bỏ `if ((true)) return metadata;` trước high-entropy trong
+    `GetUserAgentMetadata()`;
+  - bỏ `GetReducedVersionNumber()` (trả full version/full list);
+  - `IsClientHintAllowed()` trả `true` cho outermost main frame và kiểm tra
+    permissions policy cho iframe như stock; bỏ chặn trong
+    `EnabledClientHints::IsDisabledByFeature()`;
+  - khôi phục `SaveData` sent-by-default, iframe `Accept-CH` delegation,
+    và persist client hints `DURABLE`.
+- **Win7 platformVersion**: `GetPlatformVersion()` trả `"10.0.0"` khi
+  `base::win::GetVersion() < WIN10`, để khớp UA `Windows NT 10.0`; Win10/11
+  giữ giá trị thật.
+- Fixup `20` vẫn giữ nguyên; `19` vẫn là canvas deterministic (inactive).
+
+### Artifacts (2026-10-24 01:25–01:34)
+| File | md5 mới | md5 cũ (§28) |
+|---|---|---|
+| `chrome.dll` | `070cf5e79b7d85b37ef79851b3592341` | `e41ab1f0868eca6dd9a6fb878bc5cfd2` |
+| `chrome.exe` | `f56fef1d653ac218391daffaf9766e8f` | `962cc65654512246a42dfba39d8484d4` |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `b779fa3d34c7ce92ef700104b1a8e55e` (205.038.057 B) | `7d2566038d05fa232d96ba346b4eaa27` |
+| `chrome-win7-setup.exe` | `0dd45f3e3cac902d520cf97570320fd6` (135.340.751 B) | `5f71aca75b51f22d7985e12b96c5a3a4` |
+
+- `artifacts/final/` đã refresh.
+- `artifacts/test-cloudflare.bat` + `artifacts/cf-test-profile/` dùng để test
+  nhanh với profile sạch, bật WebGL và tắt DNT/GPC (dùng `chrome-win/chrome.exe`).
+
+### Cách test
+1. Chạy `artifacts/test-cloudflare.bat` (hoặc cài `chrome-win7-setup.exe` mới).
+2. Kiểm tra `chrome://flags/#clienthello-fragmentation` và
+   `#disable-tls-resumption` là **Default/Disabled**; `chrome://gpu` phải
+   báo WebGL khả dụng (nếu vẫn `Disabled` thì do GPU blocklist, không phải
+   content setting).
+3. Mở `https://debug.challenges.cloudflare.com/`; Turnstile phải pass. Nếu
+   vẫn `600010`, gửi JSON mới + `chrome://version` (dòng OS + command line).
+4. Kiểm tra chéo: mở cùng trang trên điện thoại cùng Wi-Fi/mạng di động và
+   trên Firefox cùng máy. Nếu cả hai cùng fail thì nhiều khả năng IP/network
+   bị chấm bot, không phải fingerprint trình duyệt.
+5. Nếu pass: báo lại để commit fixup `20`+`21` + docs và thử narrow down
+   (tắt từng nhóm) nếu muốn giữ privacy tối đa.
+
+### Trạng thái
+- Đã build + đóng gói + cập nhật artifacts; chờ user test.
+- Fixup `21` mới tạo, chưa commit cùng docs/README.

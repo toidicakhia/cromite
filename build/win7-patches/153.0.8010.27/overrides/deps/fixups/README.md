@@ -8,16 +8,20 @@ phase 3** by `04b-apply-win7-patches.sh` (each patch is guarded with
 of breaking the pipeline).
 
 Canonical, build-verified state: `chromium/src` branch
-`win7-153.0.8010.37` with the currently enabled fixes (`10`-`19`)
+`win7-153.0.8010.37` with the currently enabled fixes (`10`-`21`)
 applied on top of the REWORK patches. All affected objects compile
 (`siso ninja -C out/win64 chrome`); `chrome.exe` builds and links.
 
 **2026-10-23: all blur/LCD-text fixes were removed permanently at the user's
 request.** Their patch files (including the former `fixups/reverted/` copies)
 were deleted and are not applied by the build. The canvas-noise fixup was
-renumbered `26` -> `19` so the sequence is contiguous (`10`-`19`). The main
-build now uses cromite's stock grayscale text rendering again; see
-`docs/WIN7_SUPPORT_PLAN.md` §19-§27 for the removed fixes' history.
+renumbered `26` -> `19` so the sequence is contiguous. The main build now
+uses cromite's stock grayscale text rendering again; see
+`docs/WIN7_SUPPORT_PLAN.md` §19-§28 for the removed fixes' history.
+Fixup `20` is a Cloudflare-compatibility experiment that disables several
+cromite fingerprinting mitigations by default; fixup `21` continues it by
+restoring stock Chrome client hints, WebGL/WebRTC, speech voices, DNT/GPC and
+TLS behaviour (see below).
 
 ## Patches
 
@@ -33,6 +37,8 @@ build now uses cromite's stock grayscale text rendering again; see
 | `17-viewport-protection-hittest-fix.patch` | `third_party/blink` (1 file) | Map DIP coordinates by the device-emulation scale in the OOPIF hit test (`GetFrameSinkIdAtPoint`), so clicks land on cross-origin iframes (Proton Pass popup) while cromite's Viewport Protection is active. See below. |
 | `18-devtools-popup-caption-strip-fix.patch` | `chrome/browser/ui/views/frame` (1 file) | Don't report caption-button exclusions for popup-type windows with a native frame, removing the unpainted (black) strip below the caption of the undocked DevTools window on pre-Win10. See below. |
 | `19-canvas-noise-deterministic.patch` | `third_party/blink` (1 file) | Make cromite's canvas fingerprinting noise stable across repeated readbacks of the same canvas (per-process salt + pixel-derived seed) instead of random per call, so Cloudflare Turnstile/challenges no longer classify the browser as canvas-tampering. See below. |
+| `20-cloudflare-compat.patch` | content settings, `cromite_flags`, `content/child` (5 files) | Cloudflare compatibility experiment: disable Viewport Protection by default, fonts fingerprint mitigation, AudioContext shuffle, high-resolution timing mitigation, and canvas measureText/image-data noise, so the renderer surface matches stock Chrome more closely. See below. |
+| `21-cloudflare-profile.patch` | content settings, client hints, UA-CH, speech, DNT/GPC, WebGL/WebRTC, TLS (13 files) | Second Cloudflare compatibility layer: restore stock Chrome client hints/high-entropy UA data, WebGL/WebRTC defaults, speech synthesis voices, DNT/GPC off, stock TLS (no ClientHello fragmentation/resumption disable), and a Win7->Win10 `platformVersion` spoof to match the frozen UA. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -218,3 +224,81 @@ level).
   `--fingerprinting-canvas-image-data-noise` opt-out are unchanged.
 - Test: load `https://debug.challenges.cloudflare.com/` (all checks should
   pass, no canvas-randomization issue) and a Turnstile-protected login page.
+
+
+### `20-cloudflare-compat.patch` contents
+
+- Follow-up after fixup `19`: Cloudflare Turnstile still failed even though
+  `debug.challenges.cloudflare.com` no longer reported canvas randomization.
+  Upstream `uazo/cromite#2365` reports Turnstile succeeding only when several
+  cromite fingerprinting defaults are disabled, and specifically implicates
+  Viewport Protection (`#viewport-protection`) and the fonts/audio/canvas
+  mitigations.
+- Changes (all defaults only; the individual `chrome://flags` entries can
+  re-enable the feature at runtime where noted):
+  - `components/content_settings/.../viewport.inc`: default
+    `ContentSettingsType::VIEWPORT` changes `ALLOW` -> `BLOCK`, so Viewport
+    Protection is off unless the user enables it per site (or via the
+    `#viewport-protection` flag).
+  - `cromite_flags/.../Fonts-fingerprinting-mitigation.inc`: desktop default
+    `ENABLED` -> `DISABLED` (the `#fonts-fingerprint-mitigation` flag can
+    re-enable it).
+  - `cromite_flags/.../AudioBuffer-AnalyserNode-fp-mitigations.inc`: default
+    `ENABLED` -> `DISABLED` (`#fingerprinting-audio-context-data-noise`).
+  - `cromite_flags/.../High-resolution-timing-mitigation.inc`: default
+    `ENABLED` -> `DISABLED`, restoring stock 100us/5us timer resolution
+    (`#high-resolution-timing-mitigation`).
+  - `content/child/runtime_features.cc`: canvas `measureText` and image-data
+    noise are unconditionally disabled, which also zeroes the per-document
+    client-rect/SVG noise factor. The old `--fingerprinting-canvas-*-noise`
+    switches remain accepted but are now no-ops. Fixup `19` remains applied
+    but inactive unless the feature is re-enabled in code.
+- Trade-off: all five protections are weakened (stock fingerprinting surface
+  returns). This is intentional for Cloudflare compatibility; revert this
+  fixup to restore cromite's privacy defaults.
+- Test: install the rebuild, verify `chrome://flags/#viewport-protection` is
+  **Default/Disabled** (a stored "Enabled" override beats the content-setting
+  default), then load `https://debug.challenges.cloudflare.com/` and a
+  Turnstile-protected login page. If it still fails, send the debug page's
+  "Copy results" plus `chrome://version` command line.
+
+### `21-cloudflare-profile.patch` contents
+
+- The 2026-10-24 debug result after fixup `20` was still Turnstile error
+  `600010` (Cloudflare's "bot behaviour detected" family) even though the
+  debug page's four local checks (automation/clock/privacy/server) all passed.
+  The remaining differences from stock Chrome were the disabled WebGL/WebRTC
+  APIs, empty `speechSynthesis.getVoices()`, DNT/GPC enabled by default,
+  reduced/blocked UA client hints, and cromite's non-stock TLS behaviour.
+- Changes:
+  - `components/content_settings/.../webgl.inc`: `WEBGL` default
+    `BLOCK` -> `ALLOW` (stock Chrome exposes WebGL; per-site blocking still
+    works).
+  - `components/content_settings/.../webrtc.inc`: `WEBRTC` default
+    `BLOCK` -> `ALLOW`; `browser_ui_prefs.cc` restores
+    `kWebRTCIPHandlingDefault` and `webrtc_ip_handling_policy.cc` falls back
+    to `kDefault` instead of `kDisableNonProxiedUdp`.
+  - `browser_ui_prefs.cc`: `kEnableDoNotTrack` and `kEnableGPC` defaults
+    `true` -> `false` (stock Chrome sends neither header by default).
+  - `cromite_flags/.../Disable-speechSynthesis-getVoices-API.inc`: default
+    `ENABLED` -> `DISABLED`, restoring `speechSynthesis.getVoices()`.
+  - `cromite_flags/net/base/.../Enable-clienthello-fragmentation.inc` and
+    `Disable-TLS-resumption.inc`: both default `ENABLED` -> `DISABLED`,
+    restoring stock ClientHello framing and TLS session resumption.
+  - UA-CH: remove cromite's unconditional "no high entropy" early returns in
+    `AllowedToCollectHighEntropyValues()` and `GetUserAgentMetadata()`;
+    restore the full version list/`uaFullVersion`; allow all client hints in
+    `IsClientHintAllowed()`/`EnabledClientHints`; restore iframe `Accept-CH`
+    delegation and durable hint persistence.
+  - `GetPlatformVersion()`: on Windows < 10, return `"10.0.0"` so the
+    high-entropy `platformVersion` matches the frozen `Windows NT 10.0` UA
+    instead of exposing `"0.1.0"` (Win7) / `"0.2.0"` (Win8) /
+    `"0.3.0"` (Win8.1). Win10/11 keep the real value.
+- Trade-off: this is a much larger privacy rollback than fixup `20` (WebGL,
+  WebRTC local candidates, speech voices, high-entropy UA-CH, DNT/GPC, TLS
+  resumption, durable client-hint storage). It is intended as a
+  Cloudflare-compatibility layer; remove fixups `20`-`21` to restore cromite's
+  privacy defaults.
+- Test: use `artifacts/test-cloudflare.bat` (fresh profile, TLS/speech flags
+  plus WebGL/DNT prefs) or install the new setup, then check
+  `https://debug.challenges.cloudflare.com/` and a Turnstile-protected page.
