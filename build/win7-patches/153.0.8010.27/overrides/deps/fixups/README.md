@@ -8,7 +8,7 @@ phase 3** by `04b-apply-win7-patches.sh` (each patch is guarded with
 of breaking the pipeline).
 
 Canonical, build-verified state: `chromium/src` branch
-`win7-153.0.8010.37` with the currently enabled fixes (`10`-`21`)
+`win7-153.0.8010.37` with the currently enabled fixes (`10`-`22`)
 applied on top of the REWORK patches. All affected objects compile
 (`siso ninja -C out/win64 chrome`); `chrome.exe` builds and links.
 
@@ -39,6 +39,7 @@ TLS behaviour (see below).
 | `19-canvas-noise-deterministic.patch` | `third_party/blink` (1 file) | Make cromite's canvas fingerprinting noise stable across repeated readbacks of the same canvas (per-process salt + pixel-derived seed) instead of random per call, so Cloudflare Turnstile/challenges no longer classify the browser as canvas-tampering. See below. |
 | `20-cloudflare-compat.patch` | content settings, `cromite_flags`, `content/child` (5 files) | Cloudflare compatibility experiment: disable Viewport Protection by default, fonts fingerprint mitigation, AudioContext shuffle, high-resolution timing mitigation, and canvas measureText/image-data noise, so the renderer surface matches stock Chrome more closely. See below. |
 | `21-cloudflare-profile.patch` | content settings, client hints, UA-CH, speech, DNT/GPC, WebGL/WebRTC, TLS (13 files) | Second Cloudflare compatibility layer: restore stock Chrome client hints/high-entropy UA data, WebGL/WebRTC defaults, speech synthesis voices, DNT/GPC off, stock TLS (no ClientHello fragmentation/resumption disable), and a Win7->Win10 `platformVersion` spoof to match the frozen UA. See below. |
+| `22-clear-drag-state-on-start-failure.patch` | `content/browser/web_contents` (2 files) | Backport the M153.0.8010.42 fix for the drag-state leak that left WebContents input permanently unresponsive after a mouse text-drag selection (upstream CL 8356989). See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -302,3 +303,26 @@ level).
 - Test: use `artifacts/test-cloudflare.bat` (fresh profile, TLS/speech flags
   plus WebGL/DNT prefs) or install the new setup, then check
   `https://debug.challenges.cloudflare.com/` and a Turnstile-protected page.
+
+### `22-clear-drag-state-on-start-failure.patch` contents
+
+- User report: selecting text with the mouse works, but after a drag attempt
+  the page stops responding to clicks/drags (browser UI and other tabs stay
+  responsive). Reloading or clicking the omnibox temporarily restores it.
+- This is upstream regression `crbug.com/522564418` (input freezes after
+  text-drag selection). It was fixed in M153.0.8010.42 by CL 8356989
+  ("Clear drag-drop state on initialization failures") and cherry-picked from
+  main commit `4348691f9b1103015498068a958a01a14ce9f8fb`.
+- Root cause: `WebContentsViewAura::StartDragging()` calls
+  `SystemDragEnded()` when a drag cannot start (no drag-drop client, policy
+  block, mouse button already released, or start point outside the visible
+  WebContents), but it did not reset `DragSecurityInfo`. `OnDragInitiated()`
+  had already set `did_initiate_`, so later drags returned early forever and
+  the renderer input pipeline stayed stuck.
+- Fix: add `ClearDragStateOnStartFailure()`, which calls
+  `drag_security_info_.OnDragEnded()` and `SystemDragEnded()`, and use it at
+  all four initialization-failure exits in `StartDragging()`.
+- Test: rapidly click-drag-select text on a few pages (news article, ChatGPT,
+  Google Search), release, wait 3-5 s, repeat; clicks/drags and renderer
+  keyboard shortcuts (F5, F6, Ctrl+L) must keep working. Before the fix the
+  tab permanently stopped accepting input after a few attempts.

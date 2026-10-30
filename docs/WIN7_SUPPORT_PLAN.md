@@ -1391,3 +1391,66 @@ Khôi phục phần lớn bề mặt web API về stock Chrome:
 ### Trạng thái
 - Đã build + đóng gói + cập nhật artifacts; chờ user test.
 - Fixup `21` mới tạo, chưa commit cùng docs/README.
+
+## 30. Fix trang đơ sau khi kéo/bôi đen văn bản — drag state không được reset (2026-10-30)
+
+### Triệu chứng (user)
+- Kéo chuột để bôi đen chữ trên trang; sau vài lần chọn/bỏ chọn, **WebContents
+  không còn nhận click/kéo** nữa (con trỏ có thể vẫn là I-beam).
+- UI trình duyệt (tab, thanh địa chỉ, nút Reload) và các tab khác vẫn bình
+  thường; click omnibox/Reload mở lại input tạm thời.
+- Các phím tắt phải qua renderer (`F5`, `F6`, `Ctrl+L`) không tác dụng;
+  `Ctrl+T`, `Ctrl+Shift+Tab` vẫn chạy. Cuộn chuột vẫn được.
+- Đây là regression của M153: upstream `crbug.com/522564418` /
+  `crbug.com/559347435` ("WebContents input becomes completely unresponsive
+  after mouse text drag selection").
+
+### Nguyên nhân
+- `WebContentsViewAura::StartDragging()` gọi
+  `drag_security_info_.OnDragInitiated()` trước khi thử khởi động drag. Nếu
+  drag không khởi động được (race mouseup, điểm bắt đầu ngoài WebContents,
+  policy chặn, không có drag-drop client), code cũ chỉ gọi
+  `web_contents_->SystemDragEnded()` mà **không gọi
+  `DragSecurityInfo::OnDragEnded()`**.
+- `drag_security_info_.did_initiate_` vì vậy kẹt `true`; các lần
+  `StartDragging()` sau return sớm, còn renderer/input router vẫn ở trạng
+  thái drag → mọi pointer event sau đó bị nuốt cho tới khi focus đổi.
+- Lỗi lộ ra sau CL 7792498 (chặn reentrant drag); upstream sửa bằng CL
+  8356989, merge vào M153.0.8010.42.
+
+### Fix (fixup `22-clear-drag-state-on-start-failure.patch`, 2 file)
+- Thêm helper `WebContentsViewAura::ClearDragStateOnStartFailure()` gọi
+  `drag_security_info_.OnDragEnded()` + `web_contents_->SystemDragEnded()`.
+- Thay cả 4 nhánh lỗi khởi động drag trong `StartDragging()` bằng helper.
+- Đây là backport nguyên văn upstream commit
+  `4348691f9b1103015498068a958a01a14ce9f8fb` (main `8c273967d262...`,
+  CL 8356989), áp lên `content/browser/web_contents/web_contents_view_aura.*`.
+
+### Xác minh
+- `git apply --cached --check` pass trên index sạch (preimage = HEAD .37);
+  `git apply --reverse --check` pass trên worktree đã sửa.
+- Build incremental `siso ninja -C out/win64 chrome` thành công
+  (`web_contents_view_aura.obj` + link `chrome.dll`).
+- Test thủ công: lặp nhanh thao tác kéo-bôi đen → thả → chờ 3–5 s → kéo lại
+  trên vài trang (bài báo, Google Search, ChatGPT); click link/nút, kéo tiếp
+  và `F5`/`F6`/`Ctrl+L` phải luôn hoạt động. Trước fix tab sẽ đơ input sau
+  vài lần thử.
+
+### Smoke test (Wine, win7 mode)
+- Chạy build mới dưới Wine (`winecfg -v win7`), bật CDP; lặp **30 vòng**
+  chọn text → kéo/thả selection liên tiếp rồi click nút trong trang.
+- Kết quả: nút vẫn nhận click (`clicks` 0 → 1), không cần click omnibox để
+  mở lại input; renderer không crash (chỉ có log GPU/swiftshader của Wine).
+
+### Artifacts (2026-10-30 13:04–13:07)
+| File | md5 mới | md5 cũ (§29) |
+|---|---|---|
+| `chrome.dll` | `e861ea7239ed1f1384081fc80ac1b61f` | `070cf5e79b7d85b37ef79851b3592341` |
+| `chrome.exe` | `f56fef1d653ac218391daffaf9766e8f` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `cbceb16b625468173002da42671898e1` (205.036.804 B) | `b779fa3d34c7ce92ef700104b1a8e55e` |
+| `chrome-win7-setup.exe` | `5445632e82ea18ae36d8ec0f5c9acb3e` (135.312.382 B) | `0dd45f3e3cac902d520cf97570320fd6` |
+
+- `artifacts/final/` đã refresh (`chrome.dll` mới, `chrome.exe`/`chrome_elf.dll`
+  giữ nguyên).
+- Trạng thái: đã build + đóng gói; chờ user test trên Win7/8.1.
