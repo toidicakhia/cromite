@@ -295,6 +295,7 @@ Disable-Device-Attributes-API.patch
 Add-setting-to-enable-Credman-for-passkeys.patch
 Temp-disable-UseContextSnapshot.patch
 Enable-ClientHello-Segmentation.patch
+Deepen-ClientHello-Segmentation.patch
 Disable-Sticky-User-Activation-Across-Same-Origin-Navigation.patch
 Supporting-Dangling-Ptr-Detection-via-BackupRefPtr.patch
 Disable-device-bound-session.patch

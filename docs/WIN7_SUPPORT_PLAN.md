@@ -1570,3 +1570,73 @@ Khôi phục phần lớn bề mặt web API về stock Chrome:
 - `artifacts/final/` đã refresh.
 - History đã bị xóa trước đó không khôi phục được; fix chỉ chặn xóa tiếp.
 - Trạng thái: đã build + đóng gói; chờ user test thực tế.
+
+## 33. DPI bypass sâu hơn — split ClientHello giữa SNI + flush từng TCP segment (2026-11-09)
+
+### Yêu cầu
+- User muốn DPI bypass "sâu hơn" thay vì chỉ chia record cố định 512 B.
+
+### Vấn đề của bản cũ
+- Patch `Enable-ClientHello-Segmentation.patch` chỉ gọi
+  `SSL_set_max_send_fragment(ssl, 500)` (BoringSSL kẹp 512). Với ClientHello
+  TLS 1.3 + PQ key share (~1.9 KB), SNI thường nằm **trọn trong record đầu
+  512 B** → DPI chỉ cần đọc record/packet đầu là thấy hostname.
+- Toàn bộ flight được ghi bằng một `BIO_write`, nên các record bị kernel gộp
+  vào TCP segment 1460 B; record boundary không trùng packet boundary.
+
+### Fix (patch mới `Deepen-ClientHello-Segmentation.patch`)
+- Thêm vào sau `Enable-ClientHello-Segmentation.patch` trong
+  `build/cromite_patches_list.txt`.
+- Sửa `third_party/boringssl/src/ssl/s3_both.cc`:
+  - Parse ClientHello (legacy_version, random, session_id, cipher_suites,
+    compression_methods, extensions) để lấy offset/length của SNI.
+  - Record đầu tiên kết thúc tại vị trí **ngẫu nhiên bên trong hostname**
+    (`sni_offset + 1 + rand % (sni_len - 1)`), nên segment đầu chỉ chứa một
+    phần tên miền.
+  - Gọi `tls_flush()` sau **từng record**, buộc mỗi record thành một
+    `BIO_write`/`socket_->Write` riêng → record boundary = TCP segment
+    boundary (đo thực tế khớp chính xác).
+  - Các record sau có kích thước ngẫu nhiên trong `[max/2, max]`
+    (256–512 B) thay vì cố định 512, tránh fingerprint.
+  - Không có SNI (ví dụ truy cập bằng IP) → dùng lại cách chia cố định cũ.
+- Giữ nguyên fallback: handshake timeout 2 s và retry một lần **không**
+  fragmentation nếu server không chấp nhận (`IsTlsFragmentationFailed()`).
+- Chỉ áp dụng TLS/TCP; QUIC/HTTP3 không bị ảnh hưởng.
+
+### Bug trong lần thử đầu (đã sửa)
+- Bản đầu `return` sớm từ `tls_add_message()` sau khi split, nên bỏ qua
+  `ssl->s3->hs->transcript.Update(msg)`. ClientHello vẫn gửi đúng nhưng
+  transcript của client thiếu message → Finished MAC sai; `openssl s_server`
+  báo `decryption failed or bad record mac`, Chrome báo
+  `ERR_SSL_PROTOCOL_ERROR (-107)`.
+- Sửa: gọi helper rồi đi tiếp xuống phần update transcript chung (dùng
+  `else if`), không return sớm. Sau fix handshake sạch.
+
+### Xác minh
+- Raw capture (listener local, hostname `test.local`):
+  - Record payload boundaries: `319, 777, 1116, 1426, 1807, 1945`;
+    SNI ở offset `312`, dài `10` → boundary `319` nằm giữa `test.local`
+    (`test.loc|al`).
+- tcpdump + tshark trên `lo`:
+  - Client data packets: `324, 463, 344` byte.
+  - Packet đầu `324 = 5 (TLS record header) + 319` → đúng bằng record đầu,
+    không chứa trọn SNI; các record sau cũng thành segment riêng.
+- Control `--disable-features=ClientHelloFragmentation`: 1 record 1977 B,
+  SNI nguyên vẹn, không có boundary bên trong SNI.
+- `openssl s_server -www` local: DOM 4485 B, server log chỉ có `ACCEPT`,
+  không còn lỗi MAC; Chrome không còn `handshake failed`.
+- Lưu ý: DPI có reassemble toàn bộ TCP stream vẫn đọc được SNI; muốn chặn
+  hoàn toàn cần ECH (Encrypted Client Hello) + DoH có HTTPS RR. Bản này chỉ
+  làm mạnh thêm ở tầng record/TCP segment.
+
+### Artifacts (2026-11-09 09:50–09:55)
+| File | md5 mới | md5 cũ (§32) |
+|---|---|---|
+| `chrome.dll` | `ba9db5a2e3909b6a3c0ad77c53184f0f` | `9bec57af8717454f3df174d95187f326` |
+| `chrome.exe` | `60b08a9638f81b09811956ce1c6a3be6` | `730ea975d4f627f0c21e30e374394de5` |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `e3b1a18a78ce6795bd1ed8155aa9a3d5` (205.034.610 B) | `3c406ff45289cbc302ca8d2373a09b26` (205.034.126 B) |
+| `chrome-win7-setup.exe` | `783beb35780ac6a1b6054e8ffbd981e8` (135.278.857 B) | `99e9719994ef7c3aeeba55d54399ed1f` (135.299.577 B) |
+
+- `artifacts/final/` đã refresh.
+- Trạng thái: đã build + đóng gói; chờ user test trên mạng bị DPI.

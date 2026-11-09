@@ -1,0 +1,146 @@
+From 7e15fd0a4544d3ce2f78cef8f183e8c4eebbf8ed Mon Sep 17 00:00:00 2001
+From: cromite-build <build@local>
+Date: Mon, 9 Nov 2026 09:51:46 +0000
+Subject: [PATCH] [CROMITE] Deepen ClientHello segmentation with SNI-aware
+ records
+
+Split the ClientHello at a random position inside the SNI, then flush every record separately so record boundaries become separate TCP segments. The first segment no longer contains a complete host name for DPI to match. Keeps the existing fixed splitting for messages without SNI (for example IP literals) and the unfragmented retry on handshake failure.
+---
+ third_party/boringssl/src/ssl/s3_both.cc | 114 ++++++++++++++++++++++-
+ 1 file changed, 113 insertions(+), 1 deletion(-)
+
+diff --git a/third_party/boringssl/src/ssl/s3_both.cc b/third_party/boringssl/src/ssl/s3_both.cc
+index 1aefbad061..a3afaf75d5 100644
+--- a/third_party/boringssl/src/ssl/s3_both.cc
++++ b/third_party/boringssl/src/ssl/s3_both.cc
+@@ -90,6 +90,110 @@ bool tls_finish_message(const SSLImpl *ssl, CBB *cbb, Array<uint8_t> *out_msg) {
+   return CBBFinishArray(cbb, out_msg);
+ }
+ 
++// Cromite: finds the server_name extension in a ClientHello so the record
++// splitter can put a record boundary inside the host name. Returns false if
++// the message does not contain an SNI extension.
++static bool tls_find_client_hello_sni(Span<const uint8_t> msg,
++                                      size_t *out_offset, size_t *out_len) {
++  CBS cbs, body, session, ciphers, comp, extensions;
++  CBS_init(&cbs, msg.data(), msg.size());
++  uint8_t type;
++  uint32_t body_len;
++  if (!CBS_get_u8(&cbs, &type) || type != SSL3_MT_CLIENT_HELLO ||
++      !CBS_get_u24(&cbs, &body_len) ||
++      !CBS_get_bytes(&cbs, &body, body_len)) {
++    return false;
++  }
++  if (!CBS_skip(&body, 2 + 32) ||
++      !CBS_get_u8_length_prefixed(&body, &session) ||
++      !CBS_get_u16_length_prefixed(&body, &ciphers) ||
++      !CBS_get_u8_length_prefixed(&body, &comp) ||
++      !CBS_get_u16_length_prefixed(&body, &extensions)) {
++    return false;
++  }
++  while (CBS_len(&extensions) > 0) {
++    uint16_t ext_type;
++    CBS ext;
++    if (!CBS_get_u16(&extensions, &ext_type) ||
++        !CBS_get_u16_length_prefixed(&extensions, &ext)) {
++      return false;
++    }
++    if (ext_type != TLSEXT_TYPE_server_name) {
++      continue;
++    }
++    CBS names;
++    if (!CBS_get_u16_length_prefixed(&ext, &names)) {
++      return false;
++    }
++    while (CBS_len(&names) > 0) {
++      uint8_t name_type;
++      CBS name;
++      if (!CBS_get_u8(&names, &name_type) ||
++          !CBS_get_u16_length_prefixed(&names, &name)) {
++        return false;
++      }
++      if (name_type == TLSEXT_NAMETYPE_host_name) {
++        *out_offset = CBS_data(&name) - msg.data();
++        *out_len = CBS_len(&name);
++        return true;
++      }
++    }
++    return false;
++  }
++  return false;
++}
++
++// Cromite: split the ClientHello into records that are written separately.
++// When an SNI is present, the first record ends at a random position inside
++// the host name, so the first TCP segment does not contain a complete host
++// name for DPI to match. Every record is flushed on its own to keep record
++// boundaries aligned with TCP segments as much as the socket layer allows.
++static bool tls_add_client_hello_fragmented(SSLImpl *ssl,
++                                            Span<const uint8_t> msg) {
++  size_t sni_offset = 0, sni_len = 0;
++  bool has_sni = tls_find_client_hello_sni(msg, &sni_offset, &sni_len);
++
++  size_t first_len;
++  if (has_sni && sni_len >= 2) {
++    uint8_t rnd;
++    if (!RAND_bytes(&rnd, 1)) {
++      return false;
++    }
++    first_len = sni_offset + 1 + (rnd % (sni_len - 1));
++  } else {
++    // No SNI (for example, an IP literal): keep the fixed-size split.
++    first_len = std::min<size_t>(ssl->max_send_fragment, msg.size());
++  }
++  if (first_len == 0 || first_len > msg.size()) {
++    return false;
++  }
++
++  if (!add_record_to_flight(ssl, SSL3_RT_HANDSHAKE, msg.first(first_len)) ||
++      tls_flush(ssl) <= 0) {
++    return false;
++  }
++
++  Span<const uint8_t> rest = msg.subspan(first_len);
++  while (!rest.empty()) {
++    uint8_t rnd[2];
++    if (!RAND_bytes(rnd, sizeof(rnd))) {
++      return false;
++    }
++    const size_t max_fragment = std::max<size_t>(ssl->max_send_fragment, 64);
++    const size_t min_fragment = max_fragment / 2;
++    size_t chunk_len =
++        min_fragment + ((rnd[0] << 8 | rnd[1]) %
++                        (max_fragment - min_fragment + 1));
++    chunk_len = std::min(chunk_len, rest.size());
++    if (!add_record_to_flight(ssl, SSL3_RT_HANDSHAKE, rest.first(chunk_len)) ||
++        tls_flush(ssl) <= 0) {
++      return false;
++    }
++    rest = rest.subspan(chunk_len);
++  }
++  return true;
++}
++
+ bool tls_add_message(SSLImpl *ssl, Array<uint8_t> msg) {
+   // Pack handshake data into the minimal number of records. This avoids
+   // unnecessary encryption overhead, notably in TLS 1.3 where we send several
+@@ -101,7 +205,15 @@ bool tls_add_message(SSLImpl *ssl, Array<uint8_t> msg) {
+   bool is_max_send_fragment_changed =
+           ssl->max_send_fragment != SSL3_RT_MAX_PLAIN_LENGTH;
+   Span<const uint8_t> rest = msg;
+-  if (is_max_send_fragment_changed ||
++
++  // Cromite: use SNI-aware fragmentation for the ClientHello when record
++  // splitting was requested through |max_send_fragment|.
++  if (is_max_send_fragment_changed && !SSL_is_quic(ssl) && !msg.empty() &&
++      msg[0] == SSL3_MT_CLIENT_HELLO) {
++    if (!tls_add_client_hello_fragmented(ssl, msg)) {
++      return false;
++    }
++  } else if (is_max_send_fragment_changed ||
+        (!SSL_is_quic(ssl) && ssl->s3->aead_write_ctx->is_null_cipher())) {
+     while (!rest.empty()) {
+       Span<const uint8_t> chunk =
+-- 
+2.43.0
+
