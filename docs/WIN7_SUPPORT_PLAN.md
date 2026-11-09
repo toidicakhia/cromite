@@ -1508,3 +1508,65 @@ Khôi phục phần lớn bề mặt web API về stock Chrome:
 
 - `artifacts/final/` đã refresh (`chrome.dll`, `chrome.exe`, `chrome_elf.dll`).
 - Trạng thái: đã build + đóng gói; chờ user test trên mạng bị DPI/SNI block.
+
+## 32. Fix history bị xóa bởi BTM — trùng bit data type (2026-11-09)
+
+### Triệu chứng (user)
+- History (`chrome://history`) bị xóa sạch, user mô tả "mỗi khi thực hiện
+  hành động mở tab"; không liên quan tùy chọn clear data trên UI.
+
+### Nguyên nhân
+- `build/patches/Add-setting-to-clear-data-on-exit.patch` thêm modifier
+  `DATA_TYPE_SKIP_SSL_HOST_STATE = 1 << 28` vào
+  `content/public/browser/browsing_data_remover.h`.
+- Chromium 153 thêm `DATA_TYPE_LOGICAL_CLEAR = 1 << 26` và
+  `DATA_TYPE_DECLARATIVE_PERFORMANCE_OBSERVER = 1 << 27`, nên
+  `DATA_TYPE_CONTENT_END = 1 << 27`; từ đó
+  `DATA_TYPE_EMBEDDER_BEGIN = DATA_TYPE_CONTENT_END << 1 = 1 << 28`
+  và `DATA_TYPE_HISTORY = DATA_TYPE_EMBEDDER_BEGIN = 1 << 28`.
+- `DATA_TYPE_SKIP_SSL_HOST_STATE` vì vậy **trùng đúng bit history**.
+  BTM/DIPS `StateClearer::DeleteState()` OR modifier này vào `remove_mask`;
+  `ChromeBrowsingDataRemoverDelegate` bỏ qua origin filter cho history
+  (`TODO(dmurph)`), còn BTM truyền `Time::Min()`..`Time::Max()` → xóa toàn bộ
+  browsing history mỗi lần BTM dọn state cho site bounce.
+- BTM chạy theo timer 1 giờ (`kBtmTimerDelay`) và chạy ngay khi khởi động nếu
+  lần chạy trước đã quá 1 giờ (`DIPS.config.timer_last_fired`), nên lỗi trông
+  như "thỉnh thoảng" hoặc xảy ra sau khi mở browser/tab.
+- Chiều ngược lại cũng sai: xóa history bình thường sẽ set luôn bit
+  skip-SSL-host-state.
+- Đây là bug đã biết của Cromite 153 (uazo/cromite#3080); fix lấy từ
+  PR uazo/cromite#3128 (chưa merge tại thời điểm áp dụng).
+
+### Fix
+- Đổi modifier sang bit cao nhất, ngoài cả content range (≤ `1 << 27`) và
+  embedder range (hiện tới `DATA_TYPE_EMBEDDER_BEGIN << 17` = `1 << 45`):
+  `static constexpr DataType DATA_TYPE_SKIP_SSL_HOST_STATE = uint64_t{1} << 63;`
+- Sửa trực tiếp trong `build/patches/Add-setting-to-clear-data-on-exit.patch`
+  (3 dòng: comment + giá trị), đồng thời áp vào source build.
+- Không thêm fixup Win7 riêng vì bug nằm trong patch cromite và ảnh hưởng mọi
+  platform; bản vá này cũng có lợi cho build thường.
+
+### Repro + xác minh (Wine 9.0, headless/Xvfb, profile sạch)
+- Tạo 1 visit (`http://127.0.0.1:8000/a.html`), đóng browser.
+- Chèn bounce giả vào `Default/DIPS`:
+  `bounces(site='example.com', first_bounce_time=now-3h, last_bounce_time=now-3h)`
+  và set `config.timer_last_fired=now-3h`; mở lại browser.
+- Build **trước fix**: `visits` 1 → **0**, `timer_last_fired` được cập nhật,
+  bounce row vẫn còn → đúng đường BTM xóa history.
+- Build **sau fix**: `visits` 1 → **2** (giữ a.html + thêm b.html) dù
+  `timer_last_fired` vẫn được cập nhật → BTM vẫn chạy nhưng không còn xóa
+  history.
+- `chrome://history` sau fix hiển thị đủ cả 2 mục.
+
+### Artifacts (2026-11-09 09:11–09:17)
+| File | md5 mới | md5 cũ (§31) |
+|---|---|---|
+| `chrome.dll` | `9bec57af8717454f3df174d95187f326` | `de51563aceb0fa4555e7bf501697246e` |
+| `chrome.exe` | `730ea975d4f627f0c21e30e374394de5` | (không đổi) |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `3c406ff45289cbc302ca8d2373a09b26` (205.034.126 B) | `9c8f63d1ded71c57a38ed557a51c3f3a` (205.033.697 B) |
+| `chrome-win7-setup.exe` | `99e9719994ef7c3aeeba55d54399ed1f` (135.299.577 B) | `800fb59e9bcbf44880017d2d8defbc3c` (135.312.783 B) |
+
+- `artifacts/final/` đã refresh.
+- History đã bị xóa trước đó không khôi phục được; fix chỉ chặn xóa tiếp.
+- Trạng thái: đã build + đóng gói; chờ user test thực tế.
