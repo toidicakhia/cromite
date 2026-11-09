@@ -1454,3 +1454,57 @@ Khôi phục phần lớn bề mặt web API về stock Chrome:
 - `artifacts/final/` đã refresh (`chrome.dll` mới, `chrome.exe`/`chrome_elf.dll`
   giữ nguyên).
 - Trạng thái: đã build + đóng gói; chờ user test trên Win7/8.1.
+
+## 31. Bật DPI bypass (ClientHello Segmentation) mặc định (2026-11-09)
+
+### Yêu cầu
+- User hỏi build đã có DPI bypass chưa và muốn bật lên.
+
+### Hiện trạng trước fix
+- Cromite có patch `Enable-ClientHello-Segmentation.patch` (flag
+  `chrome://flags/#clienthello-fragmentation`), mặc định
+  `FEATURE_ENABLED_BY_DEFAULT`.
+- Fixup `21-cloudflare-profile.patch` đã đổi về
+  `FEATURE_DISABLED_BY_DEFAULT` để TLS giống Chrome stock (vụ Cloudflare
+  `600010`), nên build không bypass DPI out-of-the-box.
+- Code: `ssl_client_socket_impl.cc` gọi `SSL_set_max_send_fragment(ssl, 500)`;
+  BoringSSL kẹp xuống mức tối thiểu **512 B**. Chỉ áp dụng TLS/TCP (HTTPS,
+  DoH, WebSocket, proxy tunnel), không áp dụng QUIC/HTTP3; nếu handshake
+  phân mảnh lỗi/timeout thì `SSLConnectJob` retry một lần với ClientHello
+  nguyên. `DisableTLSResumption` vẫn tắt như fixup 21.
+
+### Fix
+- Thêm
+  `build/win7-patches/153.0.8010.27/overrides/deps/fixups/23-enable-clienthello-fragmentation.patch`
+  (1 file): đổi
+  `cromite_flags/net/base/features_cc/Enable-clienthello-fragmentation.inc`
+  từ `FEATURE_DISABLED_BY_DEFAULT` → `FEATURE_ENABLED_BY_DEFAULT`.
+- Fixup `23` chạy sau `21` nên thắng override Cloudflare; vẫn có thể tắt
+  bằng `chrome://flags/#clienthello-fragmentation` → Disabled hoặc
+  `--disable-features=ClientHelloFragmentation`.
+- Trade-off: TLS profile khác stock Chrome trở lại; nếu Cloudflare/Turnstile
+  regress thì tắt flag hoặc bỏ fixup `23`.
+
+### Xác minh
+- Build incremental `siso ninja -C out/win64 chrome` thành công
+  (08-build, 08:40–08:45).
+- Chạy `chrome.exe` (Wine 9.0, `--headless=new`, `--disable-quic`) trỏ vào
+  listener local `127.0.0.1:8443`, bắt raw bytes của ClientHello:
+  - Mặc định: **4 record TLS 512/512/512/422 B** (tổng 1978 B)
+    → fragmentation bật.
+  - `--disable-features=ClientHelloFragmentation`: **1 record 1990 B**
+    → control OK, flag có tác dụng.
+- Log handshake fail khi tắt flag có
+  `enable_client_hello_fragmentation 0`.
+
+### Artifacts (2026-11-09 08:45–08:51)
+| File | md5 mới | md5 cũ (§30) |
+|---|---|---|
+| `chrome.dll` | `de51563aceb0fa4555e7bf501697246e` | `e861ea7239ed1f1384081fc80ac1b61f` |
+| `chrome.exe` | `730ea975d4f627f0c21e30e374394de5` | `f56fef1d653ac218391daffaf9766e8f` |
+| `chrome_elf.dll` | `16147c36388c3a39f57cb61540b1b250` | (không đổi) |
+| `chrome-win7.zip` | `9c8f63d1ded71c57a38ed557a51c3f3a` (205.033.697 B) | `cbceb16b625468173002da42671898e1` (205.036.804 B) |
+| `chrome-win7-setup.exe` | `800fb59e9bcbf44880017d2d8defbc3c` (135.312.783 B) | `5445632e82ea18ae36d8ec0f5c9acb3e` (135.312.382 B) |
+
+- `artifacts/final/` đã refresh (`chrome.dll`, `chrome.exe`, `chrome_elf.dll`).
+- Trạng thái: đã build + đóng gói; chờ user test trên mạng bị DPI/SNI block.

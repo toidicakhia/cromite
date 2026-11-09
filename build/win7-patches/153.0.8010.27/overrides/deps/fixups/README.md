@@ -8,7 +8,7 @@ phase 3** by `04b-apply-win7-patches.sh` (each patch is guarded with
 of breaking the pipeline).
 
 Canonical, build-verified state: `chromium/src` branch
-`win7-153.0.8010.37` with the currently enabled fixes (`10`-`22`)
+`win7-153.0.8010.37` with the currently enabled fixes (`10`-`23`)
 applied on top of the REWORK patches. All affected objects compile
 (`siso ninja -C out/win64 chrome`); `chrome.exe` builds and links.
 
@@ -40,6 +40,7 @@ TLS behaviour (see below).
 | `20-cloudflare-compat.patch` | content settings, `cromite_flags`, `content/child` (5 files) | Cloudflare compatibility experiment: disable Viewport Protection by default, fonts fingerprint mitigation, AudioContext shuffle, high-resolution timing mitigation, and canvas measureText/image-data noise, so the renderer surface matches stock Chrome more closely. See below. |
 | `21-cloudflare-profile.patch` | content settings, client hints, UA-CH, speech, DNT/GPC, WebGL/WebRTC, TLS (13 files) | Second Cloudflare compatibility layer: restore stock Chrome client hints/high-entropy UA data, WebGL/WebRTC defaults, speech synthesis voices, DNT/GPC off, stock TLS (no ClientHello fragmentation/resumption disable), and a Win7->Win10 `platformVersion` spoof to match the frozen UA. See below. |
 | `22-clear-drag-state-on-start-failure.patch` | `content/browser/web_contents` (2 files) | Backport the M153.0.8010.42 fix for the drag-state leak that left WebContents input permanently unresponsive after a mouse text-drag selection (upstream CL 8356989). See below. |
+| `23-enable-clienthello-fragmentation.patch` | `cromite_flags` (1 file) | Re-enable cromite's ClientHello Segmentation by default (500-byte TLS records) for DPI/censorship evasion, undoing the fixup-21 override. Can be disabled from `chrome://flags/#clienthello-fragmentation`. See below. |
 
 ### `13-tls-aes-hw-preference.patch` contents
 
@@ -326,3 +327,29 @@ level).
   Google Search), release, wait 3-5 s, repeat; clicks/drags and renderer
   keyboard shortcuts (F5, F6, Ctrl+L) must keep working. Before the fix the
   tab permanently stopped accepting input after a few attempts.
+
+### `23-enable-clienthello-fragmentation.patch` contents
+
+- The cromite patch `Enable-ClientHello-Segmentation.patch` ships
+  `kClientHelloFragmentation` as `FEATURE_ENABLED_BY_DEFAULT`; fixup `21`
+  overrode it to `FEATURE_DISABLED_BY_DEFAULT` as part of the
+  Cloudflare-profile experiment, so the DPI/censorship bypass was present but
+  off by default.
+- This fixup flips the default back to enabled. The patch calls
+  `SSL_set_max_send_fragment(ssl, 500)`; BoringSSL clamps that to its
+  512-byte minimum, so the ClientHello goes out as 512-byte TLS records
+  (measured: 512/512/512/422 instead of a single 1990-byte record). That
+  defeats DPI which parses SNI/TLS headers in a single packet. `SSLConnectJob` keeps its
+  automatic fallback: if the fragmented handshake fails or times out, the
+  connection retries once with an unfragmented ClientHello and fragmentation
+  stays off for that job.
+- Scope: TLS over TCP only (HTTPS/DoH/WebSocket/proxy tunnels). QUIC/HTTP3 is
+  not fragmented. The flag remains available to opt out:
+  `chrome://flags/#clienthello-fragmentation` -> Disabled.
+- Trade-off: the TLS profile differs from stock Chrome again (the reason
+  fixup `21` disabled it); if a Cloudflare/Turnstile regression is observed,
+  set the flag to Disabled or remove this fixup.
+- Test: open a site blocked by SNI-based DPI, or run
+  `--enable-logging=stderr --v=1` and check for
+  `enable_client_hello_fragmentation` in the net log; the page must load
+  while the same URL fails on the same network with fragmentation disabled.
